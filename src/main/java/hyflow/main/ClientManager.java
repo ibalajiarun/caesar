@@ -6,6 +6,7 @@ import hyflow.common.RequestId;
 import hyflow.service.Service;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.core.layout.SerializedLayout;
 
 import java.io.IOException;
 import java.util.Random;
@@ -19,6 +20,11 @@ import java.util.concurrent.ConcurrentMap;
  */
 public class ClientManager {
 
+    private final Service service;
+    private final int clientCount;
+    private final int requestsPerClient;
+    private final int replicaId;
+
     private Vector<ClientThread> clients = new Vector<ClientThread>();
     private ConcurrentMap<Integer, RequestId> pendingClientRequestMap = new ConcurrentHashMap<Integer, RequestId>();
 
@@ -26,9 +32,8 @@ public class ClientManager {
 
     class ClientThread extends Thread {
 
-        int clientId = -1;
+        private final int clientId;
         int sequenceNum = 0;
-        int localClientId;
 
         private BlockingQueue<Integer> sends;
         private final Random random;
@@ -49,7 +54,7 @@ public class ClientManager {
                 while(true) {
                     byte[] bytes = service.createRequest();
 
-                    Request request = new Request(rId, new RequestId(clientId, ++sequenceNum), bytes);
+                    Request request = new Request(new RequestId(clientId, ++sequenceNum), null, bytes);
                     RequestId requestId = request.getRequestId();
 
                     pendingClientRequestMap.put(requestId.getClientId(), requestId);
@@ -89,29 +94,7 @@ public class ClientManager {
     public void execute(int clientCount, int requests)
             throws IOException, InterruptedException {
 
-        IdGenerator idGenerator = new SimpleIdGenerator(ProcessDescriptor.getInstance().localId * 1000,
-                ProcessDescriptor.getInstance().numReplicas);
 
-        //for (int i = clients.size(); i < clientCount; i++) {
-        for (int i = 0; i < clientCount; i++) {
-            int clientId = idGenerator.next();
-//        	System.out.println("ClientId: " + clientId);
-
-            ClientThread client = new ClientThread(clientId, replicaId, i);
-            client.start();
-            clients.add(client);
-        }
-
-        startTime = System.currentTimeMillis();
-
-        // prime the STM and OS-Paxos
-        for (int i = 0; i < clientCount; i++) {
-            clients.get(i).execute(requests);
-        }
-
-        for (int i = 0; i < clientCount; i++) {
-            clients.get(i).join();
-        }
     }
 
     public void replyToClient(Request request) {

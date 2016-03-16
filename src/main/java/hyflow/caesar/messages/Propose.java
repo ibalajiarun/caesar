@@ -4,8 +4,6 @@ import java.io.DataInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
-import com.sun.org.apache.regexp.internal.RE;
-import hyflow.caesar.storage.ConsensusInstance;
 import hyflow.common.Request;
 import hyflow.common.RequestId;
 

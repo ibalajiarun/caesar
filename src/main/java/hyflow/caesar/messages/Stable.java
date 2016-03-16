@@ -5,7 +5,10 @@ import hyflow.common.RequestId;
 
 import java.io.DataInputStream;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.List;
 
 public final class Stable extends Message {
     private static final long serialVersionUID = 1L;
@@ -13,6 +16,7 @@ public final class Stable extends Message {
     private final Request request;
     private final RequestId requestId;
     private final int[] objectIds;
+    private final List<RequestId> pred;
     private final long position;
     private final byte[] payload;
 
@@ -20,6 +24,7 @@ public final class Stable extends Message {
         this.request = request;
         this.requestId = request.getRequestId();
         this.objectIds = request.getObjectIds();
+        this.pred = request.getPred();
         this.position = request.getPosition();
         this.payload = request.getPayload();
     }
@@ -28,11 +33,16 @@ public final class Stable extends Message {
         super(input);
         requestId = new RequestId(input.readInt(), input.readInt());
 
-        int length = input.readInt();
-        objectIds = new int[length];
-        for (int i=0;i<length;i++) {
+        int oLen = input.readInt();
+        objectIds = new int[oLen];
+        for (int i=0;i<oLen;i++) {
             objectIds[i] = input.readInt();
         }
+
+        int pLen = input.readInt();
+        pred = new ArrayList<>(pLen);
+        while (--pLen >= 0)
+            pred.add(new RequestId(input));
 
         position = input.readLong();
         payload = new byte[input.readInt()];
@@ -65,6 +75,11 @@ public final class Stable extends Message {
         bb.putInt(objectIds.length);
         for(int oId : objectIds)
             bb.putInt(oId);
+
+        bb.putInt(pred.size());
+        for (RequestId rId : pred) {
+            rId.writeTo(bb);
+        }
 
         bb.putLong(position);
         bb.putInt(payload.length);

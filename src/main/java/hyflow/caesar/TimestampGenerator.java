@@ -7,18 +7,13 @@ import hyflow.common.ProcessDescriptor;
  */
 public class TimestampGenerator {
 
-    private static TimestampGenerator instance = new TimestampGenerator();
     private long timestamp;
     private int localId;
     private int numReplicas;
 
-    public static TimestampGenerator getInstance() {
-        return instance;
-    }
-
-    private TimestampGenerator() {
-        localId = ProcessDescriptor.getInstance().localId;
-        numReplicas = ProcessDescriptor.getInstance().numReplicas;
+    public TimestampGenerator(int localId, int numReplicas) {
+        this.localId = localId;
+        this.numReplicas = numReplicas;
         timestamp = -1;
     }
 

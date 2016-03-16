@@ -65,13 +65,13 @@ public final class MessageFactory {
                 message = new ProposeReply(input);
                 break;
             case Retry:
-                message = new Propose(input);
+                message = new Retry(input);
                 break;
             case RetryReply:
-                message = new ProposeReply(input);
+                message = new RetryReply(input);
                 break;
             case Stable:
-                message = new Propose(input);
+                message = new Stable(input);
                 break;
 
             default:

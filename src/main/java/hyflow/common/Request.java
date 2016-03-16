@@ -1,9 +1,5 @@
 package hyflow.common;
 
-import com.sun.org.apache.regexp.internal.RE;
-import hyflow.caesar.messages.ProposeReply;
-
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -24,9 +20,6 @@ public final class Request {
     private RequestStatus status;
 
     public final byte[] payload;
-    private final ProposeReply.Status[] proposeReply;
-    private int proposeReplyCount;
-    private boolean proposeDone;
 
     public Request(RequestId requestId, int[] objectIds, byte[] payload) {
         this.requestId = requestId;
@@ -34,8 +27,6 @@ public final class Request {
         this.payload = payload;
         this.status = RequestStatus.Waiting;
         this.pred = new ArrayList<>();
-        this.proposeReply = new ProposeReply.Status[ProcessDescriptor.getInstance().numReplicas];
-        this.proposeDone = false;
     }
 
     public long getPosition() {
@@ -71,6 +62,9 @@ public final class Request {
     }
 
     public boolean shouldWait(Request request) {
+        if(request == null || request instanceof Request || request == this)
+            return false;
+
         return position > request.position && !pred.contains(request)
                 && status != RequestStatus.Stable && status != RequestStatus.Accepted;
     }
@@ -90,20 +84,4 @@ public final class Request {
         return position > request.position && !pred.contains(request);
     }
 
-    public void appendProposeReply(int sender, ProposeReply.Status status) {
-        proposeReply[sender] = status;
-        proposeReplyCount++;
-    }
-
-    public int getProposeReplyCount() {
-        return proposeReplyCount;
-    }
-
-    public void setProposeDone() {
-        this.proposeDone = true;
-    }
-
-    public boolean isProposeDone() {
-        return proposeDone;
-    }
 }

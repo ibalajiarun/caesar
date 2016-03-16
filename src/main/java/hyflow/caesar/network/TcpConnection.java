@@ -78,7 +78,6 @@ public class TcpConnection {
 
     final class Sender implements Runnable {
         public void run() {
-            QueueMonitor.getInstance().registerQueue(senderThread.getName(), sendQueue);
             logger.info("Sender thread started.");
             try {
                 while (true) {

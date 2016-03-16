@@ -30,9 +30,9 @@ public class ConflictDetector {
     }
 
     public void putRequest(Request request) {
-        requestMap.putIfAbsent(request.getRequestId(), request);
-        for(int object : request.getObjectIds()) {
-            objReqMap[object].add(request);
+        requestMap.put(request.getRequestId(), request);
+        for(int oId : request.getObjectIds()) {
+            objReqMap[oId].add(request);
         }
     }
 
@@ -43,20 +43,13 @@ public class ConflictDetector {
         return null;
     }
 
-    public void wait(Request request) {
+    public Request findWaitRequest(Request request) {
         int[] objectIds = request.getObjectIds();
         for (int oId : objectIds) {
-            objReqMap[oId].forEach((Request r) -> {
-                while(r.shouldWait(request)) {
-                    try {
-                        r.wait();
-                    } catch (InterruptedException e) {
-                        logger.error("Request interrupted during wait.");
-                    }
-                }
-            });
+            return objReqMap[oId].stream().filter((Request r) -> r.shouldWait(request))
+                    .findFirst().get();
         }
-        return;
+        return null;
     }
 
     public boolean noConflictFor(Request request) {
@@ -80,8 +73,17 @@ public class ConflictDetector {
                     , maxPosition);
 
         }
+        assert maxPosition > -1 : "Invalid max position";
         return maxPosition;
     }
 
     private final Logger logger = LogManager.getLogger(ConflictDetector.class);
+
+    public void updatePred(Request request) {
+        for(int oId : request.getObjectIds()) {
+            for(Request r: objReqMap[oId]) {
+                request.getPred().add(r.getRequestId());
+            }
+        }
+    }
 }

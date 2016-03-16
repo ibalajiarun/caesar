@@ -2,7 +2,6 @@ package hyflow.main;
 
 import hyflow.caesar.replica.Replica;
 import hyflow.common.Configuration;
-import hyflow.service.Service;
 import org.apache.commons.cli.*;
 
 /**
@@ -73,12 +72,12 @@ public class Main {
 
             Configuration config = new Configuration();
 
-            ClientManager client = new ClientManager(line.getOptionValue());
+//            ClientManager client = new ClientManager(line.getOptionValue());
 
-            bank.init(objectsCount, partitionedAccess, orderOnly, sharedObjectRegistry, stmInstance);
-            Replica replica = new Replica(process, replicaId, bank, stmInstance, client, clientCount, objectsCount, batchSize, enforceSlowPath, committedBatchSize);
+//            bank.init(objectsCount, partitionedAccess, orderOnly, sharedObjectRegistry, stmInstance);
+//            Replica replica = new Replica(process, replicaId, bank, stmInstance, client, clientCount, objectsCount, batchSize, enforceSlowPath, committedBatchSize);
 
-            replica.start();
+//            replica.start();
             System.in.read();
             System.exit(-1);
 
