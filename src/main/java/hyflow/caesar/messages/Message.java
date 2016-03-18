@@ -18,7 +18,7 @@ public abstract class Message implements Serializable {
     }
 
     protected Message(DataInputStream input) throws IOException {
-        sentTime = input.readInt();
+        sentTime = input.readLong();
     }
 
     public long getSentTime() {
@@ -36,6 +36,7 @@ public abstract class Message implements Serializable {
     public final byte[] toByteArray() {
         ByteBuffer bb = ByteBuffer.allocate(byteSize());
         bb.put((byte) getType().ordinal());
+        bb.putLong(sentTime);
         write(bb);
 
         assert bb.remaining() == 0 : "Wrong sizes. Limit=" + bb.limit() + ",capacity=" +
@@ -46,6 +47,7 @@ public abstract class Message implements Serializable {
     
     public final void writeTo(ByteBuffer bb) {
         bb.put((byte) getType().ordinal());
+        bb.putLong(sentTime);
         write(bb);
     }
 

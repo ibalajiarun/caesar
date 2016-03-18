@@ -13,15 +13,10 @@ import java.util.List;
  */
 public final class ProposeReply extends Message {
 
-    public enum Status {
-        ACK, NACK
-    }
-
     private final RequestId requestId;
     private final Status status;
     private final List<RequestId> pred;
     private final long maxPosition;
-
     public ProposeReply(RequestId rId, Status status, List<RequestId> pred, long maxPosition) {
         this.requestId = rId;
         this.status = status;
@@ -83,7 +78,7 @@ public final class ProposeReply extends Message {
 
     @Override
     public int byteSize() {
-        if(status == Status.ACK)
+        if (status == Status.ACK)
             return super.byteSize() + requestId.byteSize() + 1 + 4 + (pred.size() * requestId.byteSize());
         else
             return super.byteSize() + requestId.byteSize() + 1 + 8;
@@ -91,6 +86,10 @@ public final class ProposeReply extends Message {
 
     @Override
     public String toString() {
-        return super.toString();
+        return "ProposeReply:" + super.toString() + "-" + requestId.toString() + ";" + pred + ";" + status + ";" + maxPosition;
+    }
+
+    public enum Status {
+        ACK, NACK
     }
 }

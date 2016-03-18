@@ -3,6 +3,8 @@ package hyflow.caesar;
 import hyflow.caesar.messages.ProposeReply;
 import hyflow.common.ProcessDescriptor;
 import hyflow.common.Request;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.util.Arrays;
 
@@ -13,11 +15,10 @@ public class ProposalReplyInfo {
 
     private final Request request;
     private final ProposeReply[] replies;
-
+    private final int quorum;
     private int count;
     private boolean done;
-
-    private final int quorum;
+    private Logger logger = LogManager.getLogger(ProposalReplyInfo.class);
 
     public ProposalReplyInfo(Request request) {
         this.request = request;
@@ -47,7 +48,10 @@ public class ProposalReplyInfo {
     public void addReply(ProposeReply msg, int sender) {
         replies[sender] = msg;
         count++;
-        request.getPred().addAll(msg.getPred());
+        logger.debug("addReply:" + msg.toString());
+        if (msg.getPred() != null) {
+            request.getPred().addAll(msg.getPred());
+        }
     }
 
     public boolean isFastQuorum() {

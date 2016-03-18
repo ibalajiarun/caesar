@@ -1,10 +1,13 @@
 package hyflow.service;
 
+import hyflow.common.Request;
+import hyflow.common.RequestId;
+
 /**
  * Created by balajiarun on 3/16/16.
  */
 public interface Service {
 
-    byte[] createRequest();
+    Request createRequest(RequestId rId);
 
 }

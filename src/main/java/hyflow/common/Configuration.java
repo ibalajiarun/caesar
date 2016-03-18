@@ -3,14 +3,10 @@ package hyflow.common;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Properties;
-import java.util.StringTokenizer;
+import java.io.InputStream;
+import java.net.URL;
+import java.util.*;
 
 /**
  * Holds the configuration of the system. It consists of
@@ -49,31 +45,19 @@ public final class Configuration {
     public static final int UDP_SEND_BUFFER_SIZE = 64 * 1024;
     /** for re-sending catch-up query we use a separate, self-adjusting timeout */
     public static final long CATCHUP_MIN_RESEND_TIMEOUT = 50;
-
+    private final static Logger logger = LogManager.getLogger(Configuration.class);
     private final List<PID> processes;
-    
-
     private final Properties configuration = new Properties();
 
     /**
-     * Loads the configuration from the default file
-     * <code>paxos.properties</code>
-     * 
-     * @throws IOException
-     */
-    public Configuration() throws IOException {
-        this("caesar.properties");
-    }
-
-    /**
      * Loads the configuration from the given file.
-     * 
+     *
      * @param confFile
      * @throws IOException
      */
-    public Configuration(String confFile) throws IOException {
+    public Configuration(URL confFile) throws IOException {
         // Load property from file there is one
-        FileInputStream fis = new FileInputStream(confFile);
+        InputStream fis = confFile.openStream();
         configuration.load(fis);
         fis.close();
         logger.info("Configuration loaded from file: " + confFile);
@@ -84,7 +68,7 @@ public final class Configuration {
     /**
      * Creates a configuration with the process list, and an empty set of
      * optional properties.
-     * 
+     *
      * @param processes
      */
     public Configuration(List<PID> processes) {
@@ -109,7 +93,7 @@ public final class Configuration {
 
     /**
      * Returns a given property, converting the value to an integer.
-     * 
+     *
      * @param key - the key identifying the property
      * @param defValue - the default value to use in case the key is not found.
      * @return the value of key property or defValue if key not found
@@ -126,7 +110,7 @@ public final class Configuration {
 
     /**
      * Returns a given property, converting the value to a boolean.
-     * 
+     *
      * @param key - the key identifying the property
      * @param defValue - the default value to use in case the key is not found.
      * @return the value of key property or defValue if key not found
@@ -141,10 +125,10 @@ public final class Configuration {
     }
 
     /**
-     * 
+     *
      * @param key - the key identifying the property
      * @param defValue - the default value to use in case the key is not found.
-     * 
+     *
      * @return the value of key property or defValue if key not found
      */
     public String getProperty(String key, String defValue) {
@@ -207,6 +191,4 @@ public final class Configuration {
         }
         return Long.parseLong(str);
     }
-
-    private final static Logger logger = LogManager.getLogger(Configuration.class);
 }

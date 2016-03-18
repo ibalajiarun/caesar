@@ -76,8 +76,8 @@ public class RequestId implements Serializable, Comparable<RequestId> {
             return false;
         }
 
-        RequestId requestId = (RequestId) obj;
-        return clientId == requestId.clientId && seqNumber == requestId.seqNumber;
+        RequestId other = (RequestId) obj;
+        return clientId == other.clientId && seqNumber == other.seqNumber;
     }
 
     public int hashCode() {

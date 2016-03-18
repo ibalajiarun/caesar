@@ -16,30 +16,13 @@ import java.util.concurrent.ConcurrentMap;
 
 public class Proposer {
 
-    private class OnProposeRunner implements Runnable {
-
-        private final Propose msg;
-        private final int sender;
-
-        public OnProposeRunner(Propose msg, int sender) {
-            this.msg = msg;
-            this.sender = sender;
-        }
-
-        @Override
-        public void run() {
-            proposeResume(msg, sender);
-        }
-    }
-
     private final TimestampGenerator tsGenerator;
     private final ConflictDetector conflictDetector;
     private final Network network;
-
     private final ConcurrentMap<RequestId, ProposalReplyInfo> proposalReplies;
     private final ConcurrentMap<RequestId, RetryReplyInfo> retryReplies;
-
     private final ConcurrentHashMap<RequestId, Queue<Runnable>> proposeRunnables;
+    private final Logger logger = LogManager.getLogger(Proposer.class);
 
     public Proposer(TimestampGenerator tsGenerator, ConflictDetector conflictDetector, Network network) {
         this.tsGenerator = tsGenerator;
@@ -55,10 +38,12 @@ public class Proposer {
         Propose proposeMsg = new Propose(request);
         conflictDetector.putRequest(request);
         proposeRunnables.put(request.getRequestId(), new LinkedList<>());
+        logger.fatal("Proposing");
         network.sendToAll(proposeMsg);
     }
 
     public void onPropose(Propose msg, int sender) {
+        logger.fatal("onPropose");
         Request request = msg.getRequest();
         if(ProcessDescriptor.getInstance().localId != sender) {
             conflictDetector.putRequest(request);
@@ -70,6 +55,7 @@ public class Proposer {
     }
 
     public void proposeResume(Propose msg, int sender) {
+        logger.fatal("proposeResume");
         Request request = msg.getRequest();
 
         Request r = conflictDetector.findWaitRequest(request);
@@ -92,6 +78,7 @@ public class Proposer {
     }
 
     public void onProposeReply(ProposeReply msg, int sender) {
+        logger.fatal("proposeReply");
         if(msg.getMaxPosition() > -1) {
             tsGenerator.setTimestamp(msg.getMaxPosition());
         }
@@ -129,9 +116,12 @@ public class Proposer {
             conflictDetector.putRequest(request);
 
         request.setStatus(RequestStatus.Stable);
+        logger.fatal("Message stabilized");
     }
 
     public void onRetry(Retry msg, int sender) {
+        logger.fatal("retry");
+
         Request request = msg.getRequest();
         if(ProcessDescriptor.getInstance().localId != sender)
             conflictDetector.putRequest(request);
@@ -144,6 +134,8 @@ public class Proposer {
     }
 
     public void onRetryReply(RetryReply msg, int sender) {
+        logger.fatal("retryreply");
+
         RequestId rId = msg.getRequestId();
         if(!retryReplies.containsKey(rId)) {
             Request req = conflictDetector.getRequest(rId);
@@ -163,5 +155,19 @@ public class Proposer {
         }
     }
 
-    private final Logger logger = LogManager.getLogger(Proposer.class);
+    private class OnProposeRunner implements Runnable {
+
+        private final Propose msg;
+        private final int sender;
+
+        public OnProposeRunner(Propose msg, int sender) {
+            this.msg = msg;
+            this.sender = sender;
+        }
+
+        @Override
+        public void run() {
+            proposeResume(msg, sender);
+        }
+    }
 }

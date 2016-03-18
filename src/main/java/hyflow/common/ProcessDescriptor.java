@@ -2,9 +2,6 @@ package hyflow.common;
 
 import java.util.logging.Logger;
 
-import hyflow.caesar.replica.Replica;
-import hyflow.caesar.replica.Replica.CrashModel;
-
 /**
  * Contains all the information describing the local process, including the
  * local id and the configuration of the system.
@@ -12,69 +9,61 @@ import hyflow.caesar.replica.Replica.CrashModel;
  * @author Nuno Santos (LSR)
  */
 public final class ProcessDescriptor {
-    public final Configuration config;
-    
-    /*---------------------------------------------
-     * The following properties are read from the 
-     * paxos.properties file  
-     *---------------------------------------------*/
     /**
      * Defines the default window size - that is, the maximum number of
      * concurrently proposed instances.
      */
     public static final String WINDOW_SIZE = "WindowSize";
-    public static final int DEFAULT_WINDOW_SIZE = 2;
 
+    /*---------------------------------------------
+     * The following properties are read from the 
+     * paxos.properties file  
+     *---------------------------------------------*/
+    public static final int DEFAULT_WINDOW_SIZE = 2;
     /**
      * Maximum UDP packet size in java is 65507. Higher than that and the send
      * method throws an exception.
-     * 
+     *
      * In practice, most networks have a lower limit on the maximum packet size
      * they can transmit. If this limit is exceeded, the lower layers will
      * usually fragment the packet, but in some cases there's a limit over which
      * large packets are simply dropped or raise an error.
-     * 
+     *
      * A safe value is the maximum ethernet frame: 1500 - maximum Ethernet
      * payload 20/40 - ipv4/6 header 8 - UDP header.
-     * 
+     *
      * Usually values up to 8KB are safe.
      */
     public static final String MAX_UDP_PACKET_SIZE = "MaxUDPPacketSize";
     public static final int DEFAULT_MAX_UDP_PACKET_SIZE = 8 * 1024;
-
     /**
      * Protocol to use between replicas. TCP, UDP or Generic, which combines
      * both
      */
     public static final String NETWORK = "Network";
     public static final String DEFAULT_NETWORK = "TCP";
-
     /**
      * The maximum size of batched request.
      */
     public static final String BATCH_SIZE = "BatchSize";
     public static final int DEFAULT_BATCH_SIZE = 65507;
-
     /** How long to wait until suspecting the leader. In milliseconds */
     public static final String FD_SUSPECT_TO = "FDSuspectTimeout";
     public static final int DEFAULT_FD_SUSPECT_TO = 1000;
-
     /** Interval between sending heartbeats. In milliseconds */
     public final static String FD_SEND_TO = "FDSendTimeout";
     public static final int DEFAULT_FD_SEND_TO = 500;
-
-    /**
-     * The crash model used. For valid entries see {@link CrashModel}
-     */
-    public static final String CRASH_MODEL = "CrashModel";
-    public static final CrashModel DEFAULT_CRASH_MODEL = CrashModel.FullStableStorage;
-
     /**
      * Location of the stable storage (JPaxos logs)
      */
     public static final String LOG_PATH = "LogPath";
-    public static final String DEFAULT_LOG_PATH = "jpaxosLogs";
 
+    /**
+     * The crash model used. For valid entries see {@link CrashModel}
+     */
+//    public static final String CRASH_MODEL = "CrashModel";
+//    public static final CrashModel DEFAULT_CRASH_MODEL = CrashModel.FullStableStorage;
+    public static final String DEFAULT_LOG_PATH = "jpaxosLogs";
     /**
      * Maximum time in ms that a batch can be delayed before being proposed.
      * Used to aggregate several requests on a single proposal, for greater
@@ -82,7 +71,6 @@ public final class ProcessDescriptor {
      */
     public static final String MAX_BATCH_DELAY = "MaxBatchDelay";
     public static final int DEFAULT_MAX_BATCH_DELAY = 10;
-
     /**
      * Indicates, if the underlying service is deterministic. A deterministic
      * one may always share logs. Other should not do this, as results of
@@ -90,52 +78,45 @@ public final class ProcessDescriptor {
      */
     public static final boolean DEFAULT_MAY_SHARE_SNAPSHOTS = true;
     public static final String MAY_SHARE_SNAPSHOTS = "MayShareSnapshots";
-
     public static final String CLIENT_ID_GENERATOR = "ClientIDGenerator";
     public static final String DEFAULT_CLIENT_ID_GENERATOR = "TimeBased";
-
     /** Enable or disable collecting of statistics */
     public static final String BENCHMARK_RUN_REPLICA = "BenchmarkRunReplica";
     public static final boolean DEFAULT_BENCHMARK_RUN_REPLICA = false;
-    
-
     /**
      * Before any snapshot was made, we need to have an estimate of snapshot
      * size. Value given as for now is 1 KB
      */
     public static final String FIRST_SNAPSHOT_SIZE_ESTIMATE = "FirstSnapshotEstimateBytes";
     public static final int DEFAULT_FIRST_SNAPSHOT_SIZE_ESTIMATE = 1024;
-
     /** Minimum size of the log before a snapshot is attempted */
     public static final String SNAPSHOT_MIN_LOG_SIZE = "MinLogSizeForRatioCheckBytes";
     public static final int DEFAULT_SNAPSHOT_MIN_LOG_SIZE = 100 * 1024;
-
     /** Ratio = \frac{log}{snapshot}. How bigger the log must be to ask */
     public static final String SNAPSHOT_ASK_RATIO = "SnapshotAskRatio";
     public static final double DEFAULT_SNAPSHOT_ASK_RATIO = 1;
-
     /** Ratio = \frac{log}{snapshot}. How bigger the log must be to force */
     public static final String SNAPSHOT_FORCE_RATIO = "SnapshotForceRatio";
     public static final double DEFAULT_SNAPSHOT_FORCE_RATIO = 2;
-
     /** Minimum number of instances for checking ratios */
     public static final String MIN_SNAPSHOT_SAMPLING = "MinimumInstancesForSnapshotRatioSample";
     public static final int DEFAULT_MIN_SNAPSHOT_SAMPLING = 50;
-
     public static final String RETRANSMIT_TIMEOUT = "RetransmitTimeoutMilisecs";
     public static final long DEFAULT_RETRANSMIT_TIMEOUT = 1000;
-
     /** This is the timeout designed for periodic Catch-Up */
     public static final String PERIODIC_CATCHUP_TIMEOUT = "PeriodicCatchupMilisecs";
     public static final long DEFAULT_PERIODIC_CATCHUP_TIMEOUT = 2000;
-
     /** If a TCP connection fails, how much to wait for another try */
     public static final String TCP_RECONNECT_TIMEOUT = "TcpReconnectMilisecs";
     public static final long DEFAULT_TCP_RECONNECT_TIMEOUT = 1000;
-    
-        
-
-
+    private final static Logger logger = Logger.getLogger(ProcessDescriptor.class.getCanonicalName());
+    /*
+     * Singleton class with static access. This allows any class on the JVM to
+     * statically access the process descriptor without needing to be given a
+     * reference.
+     */
+    private static ProcessDescriptor instance;
+    public final Configuration config;
     /*
      * Exposing fields is generally not good practice, but here they are made
      * final, so there is no danger of exposing them. Advantage: less
@@ -151,9 +132,8 @@ public final class ProcessDescriptor {
     public final String clientIDGenerator;
     public final boolean benchmarkRunReplica;
     public final String network;
-    public final Replica.CrashModel crashModel;
+    //    public final Replica.CrashModel crashModel;
     public final String logPath;
-
     public final int firstSnapshotSizeEstimate;
     public final int snapshotMinLogSize;
     public final double snapshotAskRatio;
@@ -164,21 +144,6 @@ public final class ProcessDescriptor {
     public final long tcpReconnectTimeout;
     public final int fdSuspectTimeout;
     public final int fdSendTimeout;
-    
-    /*
-     * Singleton class with static access. This allows any class on the JVM to
-     * statically access the process descriptor without needing to be given a
-     * reference.
-     */
-    private static ProcessDescriptor instance;
-
-    public static void initialize(Configuration config, int localId) {
-        ProcessDescriptor.instance = new ProcessDescriptor(config, localId);
-    }
-
-    public static ProcessDescriptor getInstance() {
-        return instance;
-    }
 
     private ProcessDescriptor(Configuration config, int localId) {
         this.localId = localId;
@@ -202,18 +167,18 @@ public final class ProcessDescriptor {
 
         this.logPath = config.getProperty(LOG_PATH, DEFAULT_LOG_PATH);
 
-        String defCrash = DEFAULT_CRASH_MODEL.toString();
-        String crash = config.getProperty(CRASH_MODEL, defCrash);
-        CrashModel crashModel;
-        try {
-            crashModel = Replica.CrashModel.valueOf(crash);
-        } catch (IllegalArgumentException e) {
-            crashModel = DEFAULT_CRASH_MODEL;
-            logger.severe("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-            logger.severe("Config file contains unknown crash model \"" + crash + "\". Falling back to " + crashModel);
-            logger.severe("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-        }
-        this.crashModel = crashModel;
+//        String defCrash = DEFAULT_CRASH_MODEL.toString();
+//        String crash = config.getProperty(CRASH_MODEL, defCrash);
+//        CrashModel crashModel;
+//        try {
+//            crashModel = Replica.CrashModel.valueOf(crash);
+//        } catch (IllegalArgumentException e) {
+//            crashModel = DEFAULT_CRASH_MODEL;
+//            logger.severe("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+//            logger.severe("Config file contains unknown crash model \"" + crash + "\". Falling back to " + crashModel);
+//            logger.severe("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+//        }
+//        this.crashModel = crashModel;
 
         this.firstSnapshotSizeEstimate = config.getIntProperty(
                 FIRST_SNAPSHOT_SIZE_ESTIMATE,
@@ -237,20 +202,20 @@ public final class ProcessDescriptor {
                 DEFAULT_FD_SUSPECT_TO);
         this.fdSendTimeout = config.getIntProperty(FD_SEND_TO,
                 DEFAULT_FD_SEND_TO);
-        
-    
+
+
         logger.warning(config.toString());
-        
+
         logger.warning("Configuration: " + WINDOW_SIZE + "=" + windowSize + ", " +
                        BATCH_SIZE + "=" + batchingLevel + ", " + MAX_BATCH_DELAY +
                        "=" + maxBatchDelay + ", " + MAX_UDP_PACKET_SIZE + "=" +
                        maxUdpPacketSize + ", " + NETWORK + "=" + network + ", " +
                        MAY_SHARE_SNAPSHOTS + "=" + mayShareSnapshots + ", " +
-                       BENCHMARK_RUN_REPLICA + "=" + benchmarkRunReplica + ", " +    
+                BENCHMARK_RUN_REPLICA + "=" + benchmarkRunReplica + ", " +
                        CLIENT_ID_GENERATOR + "=" + clientIDGenerator);
         logger.warning("Failure Detection: " + FD_SEND_TO + "=" + fdSendTimeout + ", " +
                       FD_SUSPECT_TO + "=" + fdSuspectTimeout);
-        logger.warning("Crash model: " + crashModel + ", LogPath: " + logPath);
+//        logger.warning("Crash model: " + crashModel + ", LogPath: " + logPath);
         logger.warning(
             FIRST_SNAPSHOT_SIZE_ESTIMATE + "=" + firstSnapshotSizeEstimate + ", " +
                     SNAPSHOT_MIN_LOG_SIZE + "=" + snapshotMinLogSize + ", " +
@@ -267,8 +232,16 @@ public final class ProcessDescriptor {
 
     }
 
+    public static void initialize(Configuration config, int localId) {
+        ProcessDescriptor.instance = new ProcessDescriptor(config, localId);
+    }
+
+    public static ProcessDescriptor getInstance() {
+        return instance;
+    }
+    
     /**
-     * 
+     *
      * @return the local process
      */
     public PID getLocalProcess() {
@@ -278,10 +251,8 @@ public final class ProcessDescriptor {
     public int getLeaderOfView(int view) {
         return view % numReplicas;
     }
-    
+
     public boolean isLocalProcessLeader(int view) {
         return getLeaderOfView(view) == localId;
     }
-
-    private final static Logger logger = Logger.getLogger(ProcessDescriptor.class.getCanonicalName());
 }

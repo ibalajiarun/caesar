@@ -8,18 +8,15 @@ import java.util.List;
  * also be a transaction if this partial order is used to insert transactions
  * from clients.
  * 
- * @see Reply
  */
 public final class Request {
 
     public final RequestId requestId;
     public final int[] objectIds;
-
+    public final byte[] payload;
     private List<RequestId> pred;
     private long position;
     private RequestStatus status;
-
-    public final byte[] payload;
 
     public Request(RequestId requestId, int[] objectIds, byte[] payload) {
         this.requestId = requestId;
@@ -61,23 +58,15 @@ public final class Request {
         return pred;
     }
 
-    public boolean shouldWait(Request request) {
-        if(request == null || request instanceof Request || request == this)
-            return false;
-
-        return position > request.position && !pred.contains(request)
-                && status != RequestStatus.Stable && status != RequestStatus.Accepted;
-    }
-
     @Override
     public boolean equals(Object other) {
-        if(other == null || other instanceof Request)
+        if (other == null || !(other instanceof Request))
             return false;
 
         if(other == this)
             return true;
 
-        return ((Request) other).requestId == this.requestId;
+        return ((Request) other).requestId.equals(this.requestId);
     }
 
     public boolean conflictsWith(Request request) {
