@@ -1,7 +1,7 @@
 package hyflow.common;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
 
 /**
  * Request from the user which needs to be inserted in state machine. It can 
@@ -9,12 +9,12 @@ import java.util.List;
  * from clients.
  * 
  */
-public final class Request {
+public final class Request implements Comparable<Request> {
 
     public final RequestId requestId;
     public final int[] objectIds;
     public final byte[] payload;
-    private List<RequestId> pred;
+    private Set<RequestId> pred;
     private long position;
     private RequestStatus status;
 
@@ -23,7 +23,7 @@ public final class Request {
         this.objectIds = objectIds;
         this.payload = payload;
         this.status = RequestStatus.Waiting;
-        this.pred = new ArrayList<>();
+        this.pred = new TreeSet<>();
     }
 
     public long getPosition() {
@@ -54,7 +54,7 @@ public final class Request {
         this.status = status;
     }
 
-    public List<RequestId> getPred() {
+    public Set<RequestId> getPred() {
         return pred;
     }
 
@@ -69,8 +69,13 @@ public final class Request {
         return ((Request) other).requestId.equals(this.requestId);
     }
 
-    public boolean conflictsWith(Request request) {
-        return position > request.position && !pred.contains(request);
+    @Override
+    public int compareTo(Request o) {
+        return requestId.compareTo(o.requestId);
     }
 
+    @Override
+    public String toString() {
+        return String.format("Request(%s; status: %s)", requestId, status);
+    }
 }

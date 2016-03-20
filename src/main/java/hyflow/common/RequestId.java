@@ -62,10 +62,10 @@ public class RequestId implements Serializable, Comparable<RequestId> {
     }
 
     public int compareTo(RequestId requestId) {
-        if (clientId != requestId.clientId) {
-            throw new IllegalArgumentException("Cannot compare requests from different clients.");
-        }
-        return (int) (seqNumber - requestId.seqNumber);
+        if (clientId != requestId.clientId)
+            return (int) (clientId - requestId.clientId);
+        else
+            return (int) (seqNumber - requestId.seqNumber);
     }
 
     public boolean equals(Object obj) {

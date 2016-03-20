@@ -2,10 +2,7 @@ package hyflow.caesar;
 
 import hyflow.caesar.messages.*;
 import hyflow.caesar.network.Network;
-import hyflow.common.ProcessDescriptor;
-import hyflow.common.Request;
-import hyflow.common.RequestId;
-import hyflow.common.RequestStatus;
+import hyflow.common.*;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -19,15 +16,20 @@ public class Proposer {
     private final TimestampGenerator tsGenerator;
     private final ConflictDetector conflictDetector;
     private final Network network;
+    private final SingleThreadDispatcher dipatcher;
+
     private final ConcurrentMap<RequestId, ProposalReplyInfo> proposalReplies;
     private final ConcurrentMap<RequestId, RetryReplyInfo> retryReplies;
+
     private final ConcurrentHashMap<RequestId, Queue<Runnable>> proposeRunnables;
     private final Logger logger = LogManager.getLogger(Proposer.class);
 
-    public Proposer(TimestampGenerator tsGenerator, ConflictDetector conflictDetector, Network network) {
+    public Proposer(TimestampGenerator tsGenerator, ConflictDetector conflictDetector, Network network, SingleThreadDispatcher dispatcher) {
         this.tsGenerator = tsGenerator;
         this.conflictDetector = conflictDetector;
         this.network = network;
+        this.dipatcher = dispatcher;
+
         this.proposalReplies = new ConcurrentHashMap<>();
         this.retryReplies = new ConcurrentHashMap<>();
         this.proposeRunnables = new ConcurrentHashMap<>();
@@ -36,8 +38,10 @@ public class Proposer {
     public void propose(Request request) {
         request.setPosition(tsGenerator.getTimeStamp());
         Propose proposeMsg = new Propose(request);
+
         conflictDetector.putRequest(request);
         proposeRunnables.put(request.getRequestId(), new LinkedList<>());
+
         logger.fatal("Proposing");
         network.sendToAll(proposeMsg);
     }
@@ -45,10 +49,12 @@ public class Proposer {
     public void onPropose(Propose msg, int sender) {
         logger.fatal("onPropose");
         Request request = msg.getRequest();
+
         if(ProcessDescriptor.getInstance().localId != sender) {
             conflictDetector.putRequest(request);
-            proposeRunnables.put(request.getRequestId(), new LinkedList<>());
+            proposeRunnables.putIfAbsent(request.getRequestId(), new LinkedList<>());
         }
+
         request.setStatus(RequestStatus.Pending);
 
         proposeResume(msg, sender);
@@ -59,34 +65,39 @@ public class Proposer {
         Request request = msg.getRequest();
 
         Request r = conflictDetector.findWaitRequest(request);
+        logger.fatal("Found wait request: " + r);
         if(r != null) {
             proposeRunnables.get(r.getRequestId()).add(new OnProposeRunner(msg, sender));
+            logger.fatal("going to wait for " + r.getRequestId().toString());
             return;
         }
 
         ProposeReply replyMsg;
         if(conflictDetector.noConflictFor(request)) {
-            conflictDetector.updatePred(request);
+            conflictDetector.updateObjReqMap(request);
             replyMsg = new ProposeReply(request.getRequestId(), ProposeReply.Status.ACK, request.getPred(), -1);
         } else {
             request.setStatus(RequestStatus.Rejected);
             long position = conflictDetector.findHighestPosition(request);
             replyMsg = new ProposeReply(request.getRequestId(), ProposeReply.Status.NACK, null, position);
+            logger.fatal("rejecting");
         }
 
+        logger.fatal("sending proposeReply to " + sender);
         network.sendMessage(replyMsg, sender);
     }
 
     public void onProposeReply(ProposeReply msg, int sender) {
         logger.fatal("proposeReply");
         if(msg.getMaxPosition() > -1) {
+            logger.fatal("Updating TS to " + msg.getMaxPosition());
             tsGenerator.setTimestamp(msg.getMaxPosition());
         }
 
         RequestId rId = msg.getRequestId();
         if(!proposalReplies.containsKey(rId)) {
             Request req = conflictDetector.getRequest(rId);
-            proposalReplies.putIfAbsent(rId, new ProposalReplyInfo(req));
+            proposalReplies.putIfAbsent(rId, new ProposalReplyInfo(req, ProcessDescriptor.getInstance().numReplicas));
         }
         ProposalReplyInfo info = proposalReplies.get(msg.getRequestId());
 
@@ -102,9 +113,11 @@ public class Proposer {
                 request.setStatus(RequestStatus.Rejected);
                 request.setPosition(tsGenerator.getTimeStamp());
                 Retry retryMsg = new Retry(info.getRequest());
+                logger.fatal("retrying");
                 network.sendToAll(retryMsg);
             } else {
                 Stable stableMsg = new Stable(info.getRequest());
+                logger.fatal("stabling");
                 network.sendToAll(stableMsg);
             }
         }
@@ -112,21 +125,30 @@ public class Proposer {
 
     public void onStable(Stable msg, int sender) {
         Request request = msg.getRequest();
-        if(ProcessDescriptor.getInstance().localId != sender)
-            conflictDetector.putRequest(request);
 
         request.setStatus(RequestStatus.Stable);
-        logger.fatal("Message stabilized");
+        conflictDetector.updateRequest(request);
+
+        RequestId rId = request.getRequestId();
+
+        if (proposeRunnables.containsKey(rId)) {
+            logger.fatal("resuming reqs for" + rId.toString() + "; size: " + proposeRunnables.get(rId).size());
+            proposeRunnables.get(rId).forEach((Runnable event) ->
+                    dipatcher.submit(event)
+            );
+            proposeRunnables.get(rId).clear();
+        }
+
+        logger.fatal("Message stabilized " + rId.toString());
     }
 
     public void onRetry(Retry msg, int sender) {
         logger.fatal("retry");
 
         Request request = msg.getRequest();
-        if(ProcessDescriptor.getInstance().localId != sender)
-            conflictDetector.putRequest(request);
+        conflictDetector.updateRequest(request);
 
-        conflictDetector.updatePred(request);
+        conflictDetector.updateObjReqMap(request);
         request.setStatus(RequestStatus.Accepted);
 
         RetryReply replyMsg = new RetryReply(request.getRequestId(), request.getPred());

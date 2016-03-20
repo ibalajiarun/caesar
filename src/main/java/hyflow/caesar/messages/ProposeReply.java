@@ -5,8 +5,8 @@ import hyflow.common.RequestId;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
 
 /**
  * Created by balajiarun on 3/12/16.
@@ -15,9 +15,10 @@ public final class ProposeReply extends Message {
 
     private final RequestId requestId;
     private final Status status;
-    private final List<RequestId> pred;
+    private final Set<RequestId> pred;
     private final long maxPosition;
-    public ProposeReply(RequestId rId, Status status, List<RequestId> pred, long maxPosition) {
+
+    public ProposeReply(RequestId rId, Status status, Set<RequestId> pred, long maxPosition) {
         this.requestId = rId;
         this.status = status;
         this.pred = pred;
@@ -25,12 +26,13 @@ public final class ProposeReply extends Message {
     }
 
     public ProposeReply(DataInputStream input) throws IOException {
+        super(input);
         requestId = new RequestId(input);
         status = Status.values()[input.readUnsignedByte()];
 
         if(status == Status.ACK) {
             int length = input.readInt();
-            pred = new ArrayList<>(length);
+            pred = new TreeSet<>();
             while (--length >= 0)
                 pred.add(new RequestId(input));
             maxPosition = -1;
@@ -44,7 +46,7 @@ public final class ProposeReply extends Message {
         return requestId;
     }
 
-    public List<RequestId> getPred() {
+    public Set<RequestId> getPred() {
         return pred;
     }
 

@@ -5,8 +5,8 @@ import hyflow.common.RequestId;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
 
 /**
  * Created by balajiarun on 3/12/16.
@@ -14,18 +14,19 @@ import java.util.List;
 public final class RetryReply extends Message {
 
     private final RequestId requestId;
-    private final List<RequestId> pred;
+    private final Set<RequestId> pred;
 
-    public RetryReply(RequestId rId, List<RequestId> pred) {
+    public RetryReply(RequestId rId, Set<RequestId> pred) {
         this.requestId = rId;
         this.pred = pred;
     }
 
     public RetryReply(DataInputStream input) throws IOException {
+        super(input);
         requestId = new RequestId(input);
 
         int length = input.readInt();
-        pred = new ArrayList<>(length);
+        pred = new TreeSet<>();
         while (--length >= 0)
             pred.add(new RequestId(input));
     }
@@ -34,13 +35,13 @@ public final class RetryReply extends Message {
         return requestId;
     }
 
-    public List<RequestId> getPred() {
+    public Set<RequestId> getPred() {
         return pred;
     }
 
     @Override
     public MessageType getType() {
-        return MessageType.ProposeReply;
+        return MessageType.RetryReply;
     }
 
     @Override
@@ -55,7 +56,8 @@ public final class RetryReply extends Message {
 
     @Override
     public int byteSize() {
-        return super.byteSize() + requestId.byteSize() + 1 + 4 + (pred.size() * requestId.byteSize());
+        return super.byteSize() + requestId.byteSize() +
+                4 + (pred.size() * requestId.byteSize());
     }
 
     @Override

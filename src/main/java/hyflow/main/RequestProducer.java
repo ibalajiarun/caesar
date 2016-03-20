@@ -21,8 +21,8 @@ public class RequestProducer implements Service {
     public Request createRequest(RequestId rId) {
         byte[] payload = new byte[]{1, 2, 3, 4, 5};
         int[] objs = new int[2];
-        objs[0] = random.nextInt(1000);
-        objs[1] = random.nextInt(1000);
+        objs[0] = random.nextInt(5);
+        objs[1] = random.nextInt(5);
         return new Request(rId, objs, payload);
     }
 

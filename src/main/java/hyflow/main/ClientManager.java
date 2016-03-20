@@ -35,10 +35,10 @@ public class ClientManager {
     }
 
     public void start() {
+        //TODO: Change clientCount to numReplicas
         IdGenerator generator = new SimpleIdGenerator(replicaId, clientCount);
         for (int i = 0; i < clientCount; i++) {
             new ClientThread(generator.next()).start();
-
         }
     }
 

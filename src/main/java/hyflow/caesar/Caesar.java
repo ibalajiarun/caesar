@@ -24,7 +24,7 @@ public class Caesar {
     public Caesar() throws IOException {
         this.pd = ProcessDescriptor.getInstance();
 
-        this.dispatcher = new SingleThreadDispatcher("Protocol");
+        this.dispatcher = new SingleThreadDispatcher("Caesar");
 
         this.udpNetwork = new UdpNetwork();
         if (pd.network.equals("TCP")) {
@@ -44,7 +44,7 @@ public class Caesar {
         TimestampGenerator tsGen = new TimestampGenerator(pd.localId, pd.numReplicas);
         ConflictDetector cDetector = new ConflictDetector(1000);
 
-        this.proposer = new Proposer(tsGen, cDetector, network);
+        this.proposer = new Proposer(tsGen, cDetector, network, dispatcher);
     }
 
     public void startCaesar() {

@@ -1,7 +1,6 @@
 package hyflow.caesar;
 
 import hyflow.caesar.messages.ProposeReply;
-import hyflow.common.ProcessDescriptor;
 import hyflow.common.Request;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -20,17 +19,16 @@ public class ProposalReplyInfo {
     private boolean done;
     private Logger logger = LogManager.getLogger(ProposalReplyInfo.class);
 
-    public ProposalReplyInfo(Request request) {
+    public ProposalReplyInfo(Request request, int numReplicas) {
         this.request = request;
 
-        int numReplicas = ProcessDescriptor.getInstance().numReplicas;
         replies = new ProposeReply[numReplicas];
 
         count = 0;
         done = false;
 
-        int failures = (int) Math.floor(ProcessDescriptor.getInstance().numReplicas / 2.0) + 1;
-        quorum = 2 * failures + 1;
+        int failures = numReplicas / 2;
+        quorum = 2 * failures;
     }
 
     public Request getRequest() {
@@ -48,7 +46,6 @@ public class ProposalReplyInfo {
     public void addReply(ProposeReply msg, int sender) {
         replies[sender] = msg;
         count++;
-        logger.debug("addReply:" + msg.toString());
         if (msg.getPred() != null) {
             request.getPred().addAll(msg.getPred());
         }
@@ -60,7 +57,7 @@ public class ProposalReplyInfo {
 
     public boolean shouldRetry() {
         return Arrays.stream(replies).anyMatch((ProposeReply reply) ->
-           reply.getStatus() == ProposeReply.Status.NACK
+                reply != null && reply.getStatus() == ProposeReply.Status.NACK
         );
     }
 }

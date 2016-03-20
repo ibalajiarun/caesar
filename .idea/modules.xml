@@ -2,7 +2,9 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/caesar.iml" filepath="$PROJECT_DIR$/caesar.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/caesar.iml" filepath="$PROJECT_DIR$/.idea/modules/caesar.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/caesar_main.iml" filepath="$PROJECT_DIR$/.idea/modules/caesar_main.iml" group="caesar" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/caesar_test.iml" filepath="$PROJECT_DIR$/.idea/modules/caesar_test.iml" group="caesar" />
     </modules>
   </component>
 </project>
