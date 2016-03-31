@@ -5,59 +5,23 @@ import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URL;
+import java.nio.file.Paths;
 import java.util.*;
 
-/**
- * Holds the configuration of the system. It consists of
- * <ul>
- * <li>the list of replicas {@link PID}
- * <li>an optional list of configuration properties.
- * </ul>
- * 
- * <p>
- * The configuration file is a standard java properties file (readable with the
- * class {@link Properties}). The PIDs of the replicas must be specified as in
- * the example below:
- * 
- * <pre>
- * # Mandatory properties
- * process.0 = &lt;host0&gt;:&lt;clientPort0&gt;:&lt;replicaPort0&gt;
- * process.1 = &lt;host1&gt;:&lt;clientPort1&gt;:&lt;replicaPort1&gt;
- * process.2 = &lt;host2&gt;:&lt;clientPort2&gt;:&lt;replicaPort2&gt;
- * 
- * # Optional properties
- * propkey = propvalue
- * ...
- * </pre>
- * 
- * It's possible to specify any number of replicas, as long as they are numbered
- * sequentially starting at 0, in the form of <code>process.x</code>.
- * 
- * @author Nuno Santos (LSR)
- * 
- */
 public final class Configuration {
-    /*---------------------------------------------
-     * The following properties are compile time constants.
-     *---------------------------------------------*/
+
     public static final int UDP_RECEIVE_BUFFER_SIZE = 64 * 1024;
     public static final int UDP_SEND_BUFFER_SIZE = 64 * 1024;
-    /** for re-sending catch-up query we use a separate, self-adjusting timeout */
+
     public static final long CATCHUP_MIN_RESEND_TIMEOUT = 50;
     private final static Logger logger = LogManager.getLogger(Configuration.class);
+
     private final List<PID> processes;
     private final Properties configuration = new Properties();
 
-    /**
-     * Loads the configuration from the given file.
-     *
-     * @param confFile
-     * @throws IOException
-     */
-    public Configuration(URL confFile) throws IOException {
+    public Configuration(String confFile) throws IOException {
         // Load property from file there is one
-        InputStream fis = confFile.openStream();
+        InputStream fis = Paths.get(confFile).toUri().toURL().openStream();
         configuration.load(fis);
         fis.close();
         logger.info("Configuration loaded from file: " + confFile);
@@ -65,12 +29,6 @@ public final class Configuration {
         this.processes = Collections.unmodifiableList(loadProcessList());
     }
 
-    /**
-     * Creates a configuration with the process list, and an empty set of
-     * optional properties.
-     *
-     * @param processes
-     */
     public Configuration(List<PID> processes) {
         this.processes = processes;
     }
@@ -91,13 +49,6 @@ public final class Configuration {
         return configuration.containsKey(key);
     }
 
-    /**
-     * Returns a given property, converting the value to an integer.
-     *
-     * @param key - the key identifying the property
-     * @param defValue - the default value to use in case the key is not found.
-     * @return the value of key property or defValue if key not found
-     */
     public int getIntProperty(String key, int defValue) {
         String str = configuration.getProperty(key);
         if (str == null) {
@@ -149,8 +100,7 @@ public final class Configuration {
                 break;
             }
             StringTokenizer st = new StringTokenizer(line, ":");
-            PID pid = new PID(i, st.nextToken(), Integer.parseInt(st.nextToken()),
-                    Integer.parseInt(st.nextToken()));
+            PID pid = new PID(i, st.nextToken(), Integer.parseInt(st.nextToken()));
             processes.add(pid);
             logger.info(pid.toString());
             i++;

@@ -1,5 +1,6 @@
 package hyflow.caesar.messages;
 
+import hyflow.common.Request;
 import hyflow.common.RequestId;
 
 import java.io.DataInputStream;
@@ -16,13 +17,14 @@ public final class ProposeReply extends Message {
     private final RequestId requestId;
     private final Status status;
     private final Set<RequestId> pred;
-    private final long maxPosition;
+    private final long position;
 
-    public ProposeReply(RequestId rId, Status status, Set<RequestId> pred, long maxPosition) {
-        this.requestId = rId;
+    public ProposeReply(int view, Request request, Status status) {
+        super(view);
+        this.requestId = request.getId();
         this.status = status;
-        this.pred = pred;
-        this.maxPosition = maxPosition;
+        this.pred = request.getPred();
+        this.position = request.getPosition();
     }
 
     public ProposeReply(DataInputStream input) throws IOException {
@@ -30,16 +32,12 @@ public final class ProposeReply extends Message {
         requestId = new RequestId(input);
         status = Status.values()[input.readUnsignedByte()];
 
-        if(status == Status.ACK) {
-            int length = input.readInt();
-            pred = new TreeSet<>();
-            while (--length >= 0)
-                pred.add(new RequestId(input));
-            maxPosition = -1;
-        } else {
-            maxPosition = input.readLong();
-            pred = null;
-        }
+        int length = input.readInt();
+        pred = new TreeSet<>();
+        while (--length >= 0)
+            pred.add(new RequestId(input));
+
+        position = input.readLong();
     }
 
     public RequestId getRequestId() {
@@ -54,8 +52,8 @@ public final class ProposeReply extends Message {
         return status;
     }
 
-    public long getMaxPosition() {
-        return maxPosition;
+    public long position() {
+        return position;
     }
 
     @Override
@@ -68,27 +66,21 @@ public final class ProposeReply extends Message {
         requestId.writeTo(bb);
         bb.put((byte) status.ordinal());
 
-        if (status == Status.ACK) {
-            bb.putInt(pred.size());
-            for (RequestId rId : pred) {
-                rId.writeTo(bb);
-            }
-        } else {
-            bb.putLong(maxPosition);
+        bb.putInt(pred.size());
+        for (RequestId rId : pred) {
+            rId.writeTo(bb);
         }
+        bb.putLong(position);
     }
 
     @Override
     public int byteSize() {
-        if (status == Status.ACK)
-            return super.byteSize() + requestId.byteSize() + 1 + 4 + (pred.size() * requestId.byteSize());
-        else
-            return super.byteSize() + requestId.byteSize() + 1 + 8;
+        return super.byteSize() + requestId.byteSize() + 1 + 4 + (pred.size() * requestId.byteSize()) + 8;
     }
 
     @Override
     public String toString() {
-        return "ProposeReply:" + super.toString() + "-" + requestId.toString() + ";" + pred + ";" + status + ";" + maxPosition;
+        return "ProposeReply:" + super.toString() + "-" + requestId.toString() + ";" + pred + ";" + status + ";" + position;
     }
 
     public enum Status {

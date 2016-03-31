@@ -16,9 +16,10 @@ public final class Retry extends Message {
     private final long position;
     private final byte[] payload;
 
-    public Retry(Request request) {
+    public Retry(int view, Request request) {
+        super(view);
         this.request = request;
-        this.requestId = request.getRequestId();
+        this.requestId = request.getId();
         this.objectIds = request.getObjectIds();
         this.position = request.getPosition();
         this.payload = request.getPayload();
@@ -61,7 +62,7 @@ public final class Retry extends Message {
     }
 
     protected void write(ByteBuffer bb) {
-        request.getRequestId().writeTo(bb);
+        request.getId().writeTo(bb);
 
         int[] oIds = request.getObjectIds();
         bb.putInt(oIds.length);

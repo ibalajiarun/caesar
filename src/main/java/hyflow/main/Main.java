@@ -1,9 +1,8 @@
 package hyflow.main;
 
-import hyflow.caesar.Caesar;
+import hyflow.benchmark.bank.Bank;
 import hyflow.caesar.replica.Replica;
 import hyflow.common.Configuration;
-import hyflow.common.ProcessDescriptor;
 import hyflow.service.Service;
 import org.apache.commons.cli.*;
 
@@ -22,7 +21,7 @@ public class Main {
                 .required()
                 .build();
 
-        Option replicaIdOpt = Option.builder("i")
+        Option replicaIdOpt = Option.builder("id")
                 .longOpt("id")
                 .hasArg()
                 .desc("replica id")
@@ -36,18 +35,26 @@ public class Main {
                 .required()
                 .build();
 
-//        Option benchmarkOpt = Option.builder("b")
-//                .longOpt("benchmark")
-//                .hasArg()
-//                .desc("benchmark service class")
-//                .required()
-//                .build();
-//
-//        Option bankObjectsOpt = Option.builder("a")
-//                .longOpt("accounts")
-//                .hasArg()
-//                .desc("number of bank accounts")
-//                .build();
+        Option benchmarkOpt = Option.builder("b")
+                .longOpt("benchmark")
+                .hasArg()
+                .desc("benchmark service class")
+                .required()
+                .build();
+
+        Option benchConfigOpt = Option.builder("bc")
+                .longOpt("benchconfig")
+                .hasArg()
+                .desc("benchmark config")
+                .required()
+                .build();
+
+        Option propFileOpt = Option.builder("p")
+                .longOpt("propfile")
+                .hasArg()
+                .desc("caesar properties file")
+                .required()
+                .build();
 
         Options options = new Options();
 
@@ -55,56 +62,47 @@ public class Main {
         options.addOption(clientCountOpt);
         options.addOption(replicaIdOpt);
         options.addOption(testTimeOpt);
-//        options.addOption(benchmarkOpt);
-
-//        options.addOption(bankObjectsOpt);
+        options.addOption(benchmarkOpt);
+        options.addOption(benchConfigOpt);
+        options.addOption(propFileOpt);
 
         return options;
     }
 
     public static void main(String[] args) throws Exception {
 
-        final String USAGE = "caesar [-h] -i <id> -c <clients> -t <test time> -b <benchmark> [-a accounts]";
+        final String USAGE = "caesar [-h] -id <id> -c <clients> -t <test time> -b <benchmark> -bc <benchmark config> -p <properties file>";
 
         Options options = buildOptions();
 
-//        String[] args1 = new String[] {"-i", "0", "-t", "1", "-c", "1"};
         CommandLine line;
         try {
             line = new DefaultParser().parse(options, args);
 
-            ClassLoader loader = Thread.currentThread().getContextClassLoader();
-            Configuration config = new Configuration(loader.getResource("caesar.properties"));
+            int localId = Integer.parseInt(line.getOptionValue("id"));
+            int numClients = Integer.parseInt(line.getOptionValue("c"));
+            int roundTime = Integer.parseInt(line.getOptionValue("t"));
 
-            int localId = Integer.parseInt(line.getOptionValue("i"));
+            String benchFile = line.getOptionValue("bc");
+            String propFile = line.getOptionValue("p");
 
-            ProcessDescriptor.initialize(config, localId);
-            Service service = new RequestProducer();
-            Caesar caesar = new Caesar();
+            Configuration config = new Configuration(propFile);
 
-            ClientManager client = new ClientManager(Integer.parseInt(line.getOptionValue("c")), localId, service, caesar);
-            Replica replica = new Replica(config, localId, service, caesar);
+            Service service = new Bank(benchFile);
+            Replica replica = new Replica(config, localId, service);
 
-            replica.start();
+            ClientManager client = new ClientManager(numClients, localId, service, replica);
+
+            replica.start(client);
 
             Thread.sleep(10000);
 
-            client.start();
+            client.collectStats(roundTime);
 
             System.in.read();
 
             System.exit(0);
 
-
-//            switch (line.getOptionValue("b")) {
-//                case "bank":
-//                    if(!line.hasOption("a"))
-//                        throw new MissingOptionException("Missing option for benchmark bank: a");
-//
-//                    break;
-//                default:
-//                    throw new IllegalArgumentException("Invalid argument for option b");
-//            }
 
         } catch (Exception e) {
             System.out.println(e.getMessage());

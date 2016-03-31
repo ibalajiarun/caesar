@@ -203,7 +203,7 @@ public class TcpConnection {
                     output.write((v >>> 24) & 0xFF);
                     output.write((v >>> 16) & 0xFF);
                     output.write((v >>>  8) & 0xFF);
-                    output.write((v >>>  0) & 0xFF);
+                    output.write(v & 0xFF);
                     output.flush();
                     // connection established
                     break;
@@ -261,7 +261,7 @@ public class TcpConnection {
         public void run() {
             logger.info("Sender thread started.");
             try {
-                while (true) {
+                while (!Thread.interrupted()) {
 //                    if (logger.isLoggable(Level.FINE)) {
 //                    if (sendQueue.size() > 64) {
 //                        logger.warning("Queue size: " + sendQueue.size());

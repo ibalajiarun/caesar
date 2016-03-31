@@ -31,7 +31,7 @@ public class RetryReplyTest extends AbstractMessageTestCase<RetryReply> {
         pred.add(new RequestId(0, 201));
         pred.add(new RequestId(0, 202));
 
-        reply = new RetryReply(requestId, pred);
+        reply = new RetryReply(0, requestId, pred);
     }
 
     @Test

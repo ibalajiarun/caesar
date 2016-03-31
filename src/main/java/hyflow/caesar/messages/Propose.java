@@ -1,11 +1,11 @@
 package hyflow.caesar.messages;
 
+import hyflow.common.Request;
+import hyflow.common.RequestId;
+
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-
-import hyflow.common.Request;
-import hyflow.common.RequestId;
 
 public final class Propose extends Message {
     private static final long serialVersionUID = 1L;
@@ -16,9 +16,10 @@ public final class Propose extends Message {
     private final long position;
     private final byte[] payload;
 
-    public Propose(Request request) {
+    public Propose(int view, Request request) {
+        super(view);
         this.request = request;
-        this.requestId = request.getRequestId();
+        this.requestId = request.getId();
         this.objectIds = request.getObjectIds();
         this.position = request.getPosition();
         this.payload = request.getPayload();

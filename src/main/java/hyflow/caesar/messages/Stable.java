@@ -19,9 +19,10 @@ public final class Stable extends Message {
     private final long position;
     private final byte[] payload;
 
-    public Stable(Request request) {
+    public Stable(int view, Request request) {
+        super(view);
         this.request = request;
-        this.requestId = request.getRequestId();
+        this.requestId = request.getId();
         this.objectIds = request.getObjectIds();
         this.pred = request.getPred();
         this.position = request.getPosition();

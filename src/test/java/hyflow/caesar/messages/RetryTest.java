@@ -27,7 +27,7 @@ public class RetryTest extends AbstractMessageTestCase<Retry> {
     public void setUp() {
         request = new Request(rId, oIds, payload);
         request.setPosition(100);
-        retry = new Retry(request);
+        retry = new Retry(0, request);
     }
 
     @Test

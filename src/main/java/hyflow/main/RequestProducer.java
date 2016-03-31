@@ -18,7 +18,7 @@ public class RequestProducer implements Service {
     }
 
     @Override
-    public Request createRequest(RequestId rId) {
+    public Request createRequest(RequestId rId, boolean read) {
         byte[] payload = new byte[]{1, 2, 3, 4, 5};
         int[] objs = new int[2];
         objs[0] = random.nextInt(5);
@@ -26,4 +26,8 @@ public class RequestProducer implements Service {
         return new Request(rId, objs, payload);
     }
 
+    @Override
+    public void executeRequest(Request request) {
+
+    }
 }

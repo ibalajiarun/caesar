@@ -2,15 +2,14 @@ package hyflow.benchmark.bank;
 
 import hyflow.transaction.AbstractObject;
 
-import java.io.Serializable;
-
 /**
  * Created by balajiarun on 3/7/16.
  */
 public class Account extends AbstractObject {
 
+    private final int id;
+
     private int balance;
-    private int id;
 
     public Account(int id, int initBalance) {
         super();

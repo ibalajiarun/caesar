@@ -124,6 +124,10 @@ public final class ProcessDescriptor {
      */
     public final int localId;
     public final int numReplicas;
+
+    public final int fastQuorum;
+    public final int classicQuorum;
+
     public final int windowSize;
     public final int batchingLevel;
     public final int maxUdpPacketSize;
@@ -150,6 +154,9 @@ public final class ProcessDescriptor {
         this.config = config;
 
         this.numReplicas = config.getN();
+
+        this.fastQuorum = this.numReplicas - this.numReplicas / 4;
+        this.classicQuorum = this.numReplicas / 2 + 1;
 
         this.windowSize = config.getIntProperty(WINDOW_SIZE, DEFAULT_WINDOW_SIZE);
         this.batchingLevel = config.getIntProperty(BATCH_SIZE, DEFAULT_BATCH_SIZE);

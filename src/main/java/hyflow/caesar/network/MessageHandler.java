@@ -1,8 +1,8 @@
 package hyflow.caesar.network;
 
-import java.util.BitSet;
-
 import hyflow.caesar.messages.Message;
+
+import java.util.BitSet;
 
 /**
  * Implementations of this interface should always return quickly and in no
@@ -18,7 +18,7 @@ public interface MessageHandler {
      * @param msg The message received.
      * @param sender The sender of the message
      */
-    public void onMessageReceived(Message msg, int sender);
+    void onMessageReceived(Message msg, int sender);
 
     /**
      * Callback method which is called every time new message was sent by the
@@ -29,5 +29,5 @@ public interface MessageHandler {
      * @param destinations - processes to which message was sent
      */
 
-    public void onMessageSent(Message message, BitSet destinations);
+    void onMessageSent(Message message, BitSet destinations);
 }

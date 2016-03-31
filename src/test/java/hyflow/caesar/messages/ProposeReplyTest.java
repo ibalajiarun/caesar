@@ -1,5 +1,6 @@
 package hyflow.caesar.messages;
 
+import hyflow.common.Request;
 import hyflow.common.RequestId;
 import org.junit.Before;
 import org.junit.Test;
@@ -19,6 +20,8 @@ import static org.junit.Assert.*;
 public class ProposeReplyTest extends AbstractMessageTestCase<ProposeReply> {
 
     private ProposeReply reply;
+
+    private Request request;
     private RequestId requestId;
     private Set<RequestId> pred;
 
@@ -29,19 +32,22 @@ public class ProposeReplyTest extends AbstractMessageTestCase<ProposeReply> {
         pred.add(new RequestId(0, 200));
         pred.add(new RequestId(0, 201));
         pred.add(new RequestId(0, 202));
+
+        request = new Request(requestId, new int[]{0, 1}, new byte[]{});
     }
 
     @Test
     public void shouldInitializeFields() {
-        reply = new ProposeReply(requestId, ProposeReply.Status.ACK, pred, 100);
-
+        request.setPred(pred);
+        reply = new ProposeReply(0, request, ProposeReply.Status.ACK);
         assertEquals(requestId, reply.getRequestId());
         assertThat(pred, is(reply.getPred()));
     }
 
     @Test
     public void testSerializationACK() throws IOException, ClassNotFoundException {
-        reply = new ProposeReply(requestId, ProposeReply.Status.ACK, pred, 100);
+        request.setPred(pred);
+        reply = new ProposeReply(0, request, ProposeReply.Status.ACK);
 
         verifySerialization(reply);
 
@@ -57,13 +63,13 @@ public class ProposeReplyTest extends AbstractMessageTestCase<ProposeReply> {
         assertEquals(MessageType.ProposeReply, type);
         compare(reply, deserializedReply);
         assertThat(deserializedReply.getPred(), is(pred));
-        assertEquals(deserializedReply.getMaxPosition(), -1);
+        assertEquals(0, deserializedReply.position());
         assertEquals(0, dis.available());
     }
 
     @Test
     public void testSerializationNACK() throws IOException, ClassNotFoundException {
-        reply = new ProposeReply(requestId, ProposeReply.Status.NACK, pred, 100);
+        reply = new ProposeReply(0, request, ProposeReply.Status.NACK);
 
         verifySerialization(reply);
 
@@ -78,14 +84,14 @@ public class ProposeReplyTest extends AbstractMessageTestCase<ProposeReply> {
 
         assertEquals(MessageType.ProposeReply, type);
         compare(reply, deserializedReply);
-        assertNull(deserializedReply.getPred());
-        assertEquals(deserializedReply.getMaxPosition(), 100);
+        assertTrue(deserializedReply.getPred().isEmpty());
+        assertEquals(0, deserializedReply.position());
         assertEquals(0, dis.available());
     }
 
     @Test
     public void shouldReturnCorrectMessageType() {
-        reply = new ProposeReply(requestId, ProposeReply.Status.ACK, pred, 100);
+        reply = new ProposeReply(0, request, ProposeReply.Status.ACK);
         assertEquals(MessageType.ProposeReply, reply.getType());
     }
 

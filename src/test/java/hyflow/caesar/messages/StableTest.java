@@ -27,7 +27,7 @@ public class StableTest extends AbstractMessageTestCase<Stable> {
     public void setUp() {
         request = new Request(rId, oIds, payload);
         request.setPosition(100);
-        stable = new Stable(request);
+        stable = new Stable(0, request);
     }
 
     @Test

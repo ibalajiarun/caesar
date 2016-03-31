@@ -8,5 +8,5 @@ public enum RequestStatus {
     Pending,
     Rejected,
     Accepted,
-    Stable
+    Delivered, Stable
 }

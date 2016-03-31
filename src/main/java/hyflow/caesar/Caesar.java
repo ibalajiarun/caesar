@@ -13,12 +13,15 @@ import java.io.IOException;
 import java.util.BitSet;
 
 public class Caesar {
-    private final static Logger logger = LogManager.getLogger(Caesar.class.getCanonicalName());
+    private final static Logger logger = LogManager.getLogger(Caesar.class);
+
     private final Proposer proposer;
     private final SingleThreadDispatcher dispatcher;
     private final UdpNetwork udpNetwork;
     private final Network network;
     private final ProcessDescriptor pd;
+
+    private DecideCallback callback;
 
 
     public Caesar() throws IOException {
@@ -42,14 +45,16 @@ public class Caesar {
 
 
         TimestampGenerator tsGen = new TimestampGenerator(pd.localId, pd.numReplicas);
-        ConflictDetector cDetector = new ConflictDetector(1000);
+        ConflictDetector cDetector = new ConflictDetector(10000);
 
-        this.proposer = new Proposer(tsGen, cDetector, network, dispatcher);
+        this.proposer = new Proposer(tsGen, cDetector, network, dispatcher, this);
     }
 
-    public void startCaesar() {
+    public void startCaesar(DecideCallback callback) {
 
         logger.warn("startCaesar");
+        this.callback = callback;
+
         MessageHandler handler = new MessageHandlerImpl();
         Network.addMessageListener(MessageType.Alive, handler);
         Network.addMessageListener(MessageType.Propose, handler);
@@ -62,29 +67,16 @@ public class Caesar {
         network.start();
     }
 
-    public SingleThreadDispatcher getDispatcher() {
-        return dispatcher;
-    }
-
-    public void decide() {
-
+    public void deliver(Request request) {
+        this.callback.deliver(request);
     }
 
     public void propose(final Request request) {
-        dispatcher.execute(new Runnable() {
-            @Override
-            public void run() {
-                proposer.propose(request);
-            }
-        });
+        dispatcher.execute(() -> proposer.propose(request));
     }
 
     public Network getNetwork() {
         return network;
-    }
-
-    public Proposer getProposer() {
-        return proposer;
     }
 
     private class MessageHandlerImpl implements MessageHandler {
@@ -95,7 +87,6 @@ public class Caesar {
         }
 
         public void onMessageSent(Message message, BitSet destinations) {
-            // Empty
         }
     }
 
@@ -142,7 +133,6 @@ public class Caesar {
             } catch (Throwable t) {
                 logger.log(Level.FATAL, "Unexpected exception", t);
                 t.printStackTrace();
-//                System.exit(1);
             }
         }
 

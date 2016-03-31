@@ -1,10 +1,9 @@
 package hyflow.caesar.network;
 
-import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
+import hyflow.caesar.messages.Message;
+import hyflow.common.KillOnExceptionHandler;
+
+import java.io.*;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
@@ -13,10 +12,8 @@ import java.util.BitSet;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import hyflow.common.KillOnExceptionHandler;
-import hyflow.caesar.messages.Message;
-
 public class TcpNetwork extends Network implements Runnable {
+    private final static Logger logger = Logger.getLogger(TcpNetwork.class.getCanonicalName());
     private final TcpConnection[] connections;
     private final ServerSocket server;
     private final Thread acceptorThread;
@@ -90,14 +87,12 @@ public class TcpNetwork extends Network implements Runnable {
         fireSentMessage(message, destinations);
     }
 
-
-
     /**
      * Main loop which accepts incoming connections.
      */
     public void run() {
         logger.info(Thread.currentThread().getName() + " thread started");
-        while (true) {
+        while (!Thread.interrupted()) {
             try {
                 Socket socket = server.accept();
                 initializeConnection(socket);
@@ -145,7 +140,6 @@ public class TcpNetwork extends Network implements Runnable {
         }
     }
 
-
     public void closeAll() {
         for (TcpConnection c : connections) {
             try {
@@ -155,7 +149,5 @@ public class TcpNetwork extends Network implements Runnable {
             }
         }
     }
-
-    private final static Logger logger = Logger.getLogger(TcpNetwork.class.getCanonicalName());
 
 }

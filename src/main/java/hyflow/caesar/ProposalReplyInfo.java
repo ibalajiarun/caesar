@@ -1,6 +1,7 @@
 package hyflow.caesar;
 
 import hyflow.caesar.messages.ProposeReply;
+import hyflow.common.ProcessDescriptor;
 import hyflow.common.Request;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -14,7 +15,10 @@ public class ProposalReplyInfo {
 
     private final Request request;
     private final ProposeReply[] replies;
-    private final int quorum;
+
+    private final int fastQuorum;
+    private final int classicQuorum;
+
     private int count;
     private boolean done;
     private Logger logger = LogManager.getLogger(ProposalReplyInfo.class);
@@ -27,8 +31,8 @@ public class ProposalReplyInfo {
         count = 0;
         done = false;
 
-        int failures = numReplicas / 2;
-        quorum = 2 * failures;
+        classicQuorum = ProcessDescriptor.getInstance().classicQuorum;
+        fastQuorum = ProcessDescriptor.getInstance().fastQuorum;
     }
 
     public Request getRequest() {
@@ -52,11 +56,15 @@ public class ProposalReplyInfo {
     }
 
     public boolean isFastQuorum() {
-        return (count >= quorum);
+        return (count >= fastQuorum);
+    }
+
+    public boolean isClassicQuorum() {
+        return (count >= classicQuorum);
     }
 
     public boolean shouldRetry() {
-        return Arrays.stream(replies).anyMatch((ProposeReply reply) ->
+        return Arrays.stream(replies).anyMatch(reply ->
                 reply != null && reply.getStatus() == ProposeReply.Status.NACK
         );
     }

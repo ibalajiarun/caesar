@@ -8,6 +8,8 @@ import hyflow.common.RequestId;
  */
 public interface Service {
 
-    Request createRequest(RequestId rId);
+    Request createRequest(RequestId rId, boolean read);
+
+    void executeRequest(final Request request);
 
 }

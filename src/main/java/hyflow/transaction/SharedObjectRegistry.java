@@ -8,12 +8,10 @@ import java.util.concurrent.ConcurrentMap;
  */
 public class SharedObjectRegistry {
 
-    private ConcurrentMap<Integer, AbstractObject> registry;
-    private int capacity;
+    private final ConcurrentMap<Integer, AbstractObject> registry;
 
     public SharedObjectRegistry(int capacity) {
-        this.registry = new ConcurrentHashMap<Integer, AbstractObject>(capacity);
-        this.capacity= capacity;
+        this.registry = new ConcurrentHashMap<>(capacity);
     }
 
     public void registerObjects(int id, AbstractObject object) {
@@ -22,10 +20,6 @@ public class SharedObjectRegistry {
 
     public AbstractObject getObject(int id) {
         return registry.get(id);
-    }
-
-    public int getCapacity() {
-        return registry.size();
     }
 
 }

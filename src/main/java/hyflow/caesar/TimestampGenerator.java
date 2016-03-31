@@ -1,7 +1,5 @@
 package hyflow.caesar;
 
-import hyflow.common.ProcessDescriptor;
-
 /**
  * Created by balajiarun on 3/11/16.
  */
@@ -14,21 +12,20 @@ public class TimestampGenerator {
     public TimestampGenerator(int localId, int numReplicas) {
         this.localId = localId;
         this.numReplicas = numReplicas;
-        timestamp = -1;
+        timestamp = localId;
     }
 
-    public synchronized long getTimeStamp() {
-        do {
-            timestamp++;
-        } while (timestamp % numReplicas != localId);
-        return timestamp;
+    public synchronized long newTimestamp() {
+        long retVal = timestamp;
+        timestamp += numReplicas;
+        return retVal;
     }
 
     public synchronized void setTimestamp(long observed) {
         if(observed <= timestamp)
             return;
-
-        timestamp = observed;
+        timestamp = observed + numReplicas + localId - observed % numReplicas;
+        assert timestamp % numReplicas == localId;
     }
 
 }

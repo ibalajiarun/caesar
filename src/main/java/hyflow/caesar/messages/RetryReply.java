@@ -16,7 +16,8 @@ public final class RetryReply extends Message {
     private final RequestId requestId;
     private final Set<RequestId> pred;
 
-    public RetryReply(RequestId rId, Set<RequestId> pred) {
+    public RetryReply(int view, RequestId rId, Set<RequestId> pred) {
+        super(view);
         this.requestId = rId;
         this.pred = pred;
     }

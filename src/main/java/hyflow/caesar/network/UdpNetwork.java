@@ -1,23 +1,19 @@
 package hyflow.caesar.network;
 
+import hyflow.caesar.messages.Message;
+import hyflow.caesar.messages.MessageFactory;
+import hyflow.common.Configuration;
+import hyflow.common.KillOnExceptionHandler;
+import hyflow.common.PID;
+
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.IOException;
-import java.net.DatagramPacket;
-import java.net.DatagramSocket;
-import java.net.InetSocketAddress;
-import java.net.SocketAddress;
-import java.net.SocketException;
+import java.net.*;
 import java.nio.ByteBuffer;
 import java.util.BitSet;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
-import hyflow.common.Configuration;
-import hyflow.common.KillOnExceptionHandler;
-import hyflow.common.PID;
-import hyflow.caesar.messages.Message;
-import hyflow.caesar.messages.MessageFactory;
 
 /**
  * Represents network based on UDP. Provides basic methods, sending messages to
@@ -27,6 +23,7 @@ import hyflow.caesar.messages.MessageFactory;
  *
  */
 public class UdpNetwork extends Network {
+    private final static Logger logger = Logger.getLogger(UdpNetwork.class.getCanonicalName());
     private final DatagramSocket datagramSocket;
     private final Thread readThread;
     private final SocketAddress[] addresses;
@@ -58,46 +55,6 @@ public class UdpNetwork extends Network {
         if (!started) {
             readThread.start();
             started = true;
-        }
-    }
-
-    /**
-     * Reads messages from the network and enqueues them to be handled by the
-     * dispatcher thread.
-     */
-    private class SocketReader implements Runnable {
-        public void run() {
-            logger.info(Thread.currentThread().getName() +
-                    " thread started. Waiting for UDP messages");
-            try {
-                while (true) {
-                    // byte[] buffer = new byte[Config.MAX_UDP_PACKET_SIZE + 4];
-                    byte[] buffer = new byte[p.maxUdpPacketSize + 4];
-                    // Read message and enqueue it for processing.
-                    DatagramPacket dp = new DatagramPacket(buffer, buffer.length);
-                    datagramSocket.receive(dp);
-
-                    ByteArrayInputStream bais = new ByteArrayInputStream(dp.getData(),
-                            dp.getOffset(), dp.getLength());
-                    DataInputStream dis = new DataInputStream(bais);
-
-                    int sender = dis.readInt();
-                    byte[] data = new byte[dp.getLength() - 4];
-                    dis.read(data);
-
-                    try {
-                        Message message = MessageFactory.readByteArray(data);
-                        if (logger.isLoggable(Level.FINE)) {
-                            logger.fine("Received from " + sender + ":" + message);
-                        }
-                        fireReceiveMessage(message, sender);
-                    } catch (ClassNotFoundException e) {
-                        logger.log(Level.WARNING,"Error deserializing message", e);
-                    }
-                }
-            } catch (IOException e) {
-                logger.log(Level.SEVERE, "Fatal error.", e);
-            }
         }
     }
 
@@ -144,11 +101,48 @@ public class UdpNetwork extends Network {
         send(messageBytes, destinations);
     }
 
-
-    private final static Logger logger = Logger.getLogger(UdpNetwork.class.getCanonicalName());
-
     @Override
     public boolean send(byte[] message, int destination) {
         throw new UnsupportedOperationException();
+    }
+
+    /**
+     * Reads messages from the network and enqueues them to be handled by the
+     * dispatcher thread.
+     */
+    private class SocketReader implements Runnable {
+        public void run() {
+            logger.info(Thread.currentThread().getName() +
+                    " thread started. Waiting for UDP messages");
+            try {
+                while (!Thread.interrupted()) {
+                    // byte[] buffer = new byte[Config.MAX_UDP_PACKET_SIZE + 4];
+                    byte[] buffer = new byte[p.maxUdpPacketSize + 4];
+                    // Read message and enqueue it for processing.
+                    DatagramPacket dp = new DatagramPacket(buffer, buffer.length);
+                    datagramSocket.receive(dp);
+
+                    ByteArrayInputStream bais = new ByteArrayInputStream(dp.getData(),
+                            dp.getOffset(), dp.getLength());
+                    DataInputStream dis = new DataInputStream(bais);
+
+                    int sender = dis.readInt();
+                    byte[] data = new byte[dp.getLength() - 4];
+                    dis.read(data);
+
+                    try {
+                        Message message = MessageFactory.readByteArray(data);
+                        if (logger.isLoggable(Level.FINE)) {
+                            logger.fine("Received from " + sender + ":" + message);
+                        }
+                        fireReceiveMessage(message, sender);
+                    } catch (ClassNotFoundException e) {
+                        logger.log(Level.WARNING, "Error deserializing message", e);
+                    }
+                }
+            } catch (IOException e) {
+                logger.log(Level.SEVERE, "Fatal error.", e);
+            }
+        }
     }
 }

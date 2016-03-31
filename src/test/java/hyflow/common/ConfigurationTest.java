@@ -3,7 +3,6 @@ package hyflow.common;
 import org.junit.Test;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -59,7 +58,7 @@ public class ConfigurationTest {
     }
 
     @Test
-    public void shouldLoadFromFile() throws FileNotFoundException, IOException {
+    public void shouldLoadFromFile() throws IOException {
         Properties properties = new Properties();
         properties.put("process.0", "localhost:2000:3000");
         properties.put("process.1", "localhost:2001:3001");
@@ -74,7 +73,7 @@ public class ConfigurationTest {
         properties.store(outputStream, "");
         outputStream.close();
 
-        Configuration configuration = new Configuration(tempFile.toURI().toURL());
+        Configuration configuration = new Configuration(tempFile.toString());
         assertEquals(3, configuration.getN());
         assertEquals("localhost", configuration.getProcess(0).getHostname());
         assertEquals(2000, configuration.getProcess(0).getReplicaPort());
