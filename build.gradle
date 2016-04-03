@@ -61,6 +61,6 @@ startScripts {
 
 }
 
-applicationDefaultJvmArgs = ["-Xmx4096m", "-Xms2048m"]
+applicationDefaultJvmArgs = ["-Xmx4096m", "-Xms2048m", "-ea"]
 
 mainClassName = "hyflow.main.Main"

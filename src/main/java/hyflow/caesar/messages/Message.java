@@ -56,4 +56,12 @@ public abstract class Message implements Serializable {
     public abstract MessageType getType();
 
     protected abstract void write(ByteBuffer bb);
+
+    @Override
+    public String toString() {
+        return "Message{" +
+                "view=" + view +
+                ", sentTime=" + sentTime +
+                '}';
+    }
 }

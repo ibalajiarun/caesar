@@ -4,19 +4,20 @@ import hyflow.caesar.messages.*;
 import hyflow.caesar.network.*;
 import hyflow.common.ProcessDescriptor;
 import hyflow.common.Request;
-import hyflow.common.SingleThreadDispatcher;
+import hyflow.common.ThreadDispatcher;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
 import java.util.BitSet;
+import java.util.Queue;
 
 public class Caesar {
     private final static Logger logger = LogManager.getLogger(Caesar.class);
 
     private final Proposer proposer;
-    private final SingleThreadDispatcher dispatcher;
+    private final ThreadDispatcher dispatcher;
     private final UdpNetwork udpNetwork;
     private final Network network;
     private final ProcessDescriptor pd;
@@ -27,7 +28,7 @@ public class Caesar {
     public Caesar() throws IOException {
         this.pd = ProcessDescriptor.getInstance();
 
-        this.dispatcher = new SingleThreadDispatcher("Caesar");
+        this.dispatcher = new ThreadDispatcher("Caesar", pd.numThreads);
 
         this.udpNetwork = new UdpNetwork();
         if (pd.network.equals("TCP")) {
@@ -67,8 +68,8 @@ public class Caesar {
         network.start();
     }
 
-    public void deliver(Request request) {
-        this.callback.deliver(request);
+    public void deliver(Request request, Queue<Runnable> deliverQ) {
+        this.callback.deliver(request, deliverQ);
     }
 
     public void propose(final Request request) {
@@ -77,6 +78,10 @@ public class Caesar {
 
     public Network getNetwork() {
         return network;
+    }
+
+    public void onDelivery(Request request, Queue<Runnable> deliverQ) {
+        proposer.onDelivery(request, deliverQ);
     }
 
     private class MessageHandlerImpl implements MessageHandler {
@@ -119,6 +124,7 @@ public class Caesar {
                         break;
 
                     case Stable:
+                        logger.debug("Stable triggering");
                         proposer.onStable((Stable) msg, sender);
                         break;
 

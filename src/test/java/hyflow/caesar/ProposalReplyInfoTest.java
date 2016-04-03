@@ -28,14 +28,14 @@ public class ProposalReplyInfoTest {
 
     @Test
     public void testShouldRetryCheckNull() {
-        assertFalse(info.shouldRetry());
+        assertFalse(info.hasNack());
     }
 
     @Test
     public void testShouldRetryReturnTrue() {
 //        ProposeReply reply = new ProposeReply(0, new RequestId(0, 10), ProposeReply.Status.NACK);
 //        info.addReply(reply, 0);
-//        assertTrue(info.shouldRetry());
+//        assertTrue(info.hasNack());
     }
 
 }

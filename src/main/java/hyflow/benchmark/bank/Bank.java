@@ -81,7 +81,7 @@ public class Bank extends AbstractBenchmark {
         objectIds[0] = src;
         do {
             dst = random.nextInt(this.numAccounts); //random.nextInt(max - min) + min;
-        } while (src == dst);
+        } while (src >= dst);
         objectIds[1] = dst;
 
         buffer.putInt(src);

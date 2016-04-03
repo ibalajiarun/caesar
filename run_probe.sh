@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
-scp build/install/caesar/lib/caesar.jar susitna:/proj/HyflowTM/balaji/demo/caesar/lib/.
-scp caesar.properties bank.properties susitna:/proj/HyflowTM/balaji/demo/caesar/.
+scp build/install/caesar/lib/caesar.jar susitna:/tank/projects/HyflowTM/balaji/caesar/lib/.
+scp caesar.properties bank.properties susitna:/tank/projects/HyflowTM/balaji/caesar/.

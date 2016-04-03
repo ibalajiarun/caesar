@@ -32,11 +32,36 @@ public class ConflictDetector {
         }
     }
 
-    public void putRequest(Request request) {
-        requestMap.put(request.getId(), request);
-        for(int oId : request.getObjectIds()) {
-            logger.debug("Putting objId " + oId + "from request " + request + " into objReqMap");
-            objReqMap[oId].add(request);
+//    public void putRequest(Request request) {
+//        requestMap.put(request.getId(), request);
+//        for(int oId : request.getObjectIds()) {
+//            logger.debug("Putting objId " + oId + "from request " + request + " into objReqMap");
+//            objReqMap[oId].add(request);
+//        }
+//    }
+
+    public Request updateRequest(Request newReq) {
+        Request request = requestMap.putIfAbsent(newReq.getId(), newReq);
+        if (request == null)
+            request = newReq;
+
+        synchronized (request) {
+            if (request.getStatus().ordinal() > newReq.getStatus().ordinal())
+                return request;
+
+            if (request == newReq) {
+                for (int oId : request.getObjectIds()) {
+                    logger.debug("Putting objId " + oId + "from request " + request + " into objReqMap");
+                    objReqMap[oId].add(request);
+                }
+            } else {
+                request.updateWith(newReq);
+//                request.setPosition(newReq.getPosition());
+//                request.setPred(newReq.getPred());
+//                request.setStatus(newReq.getStatus());
+//                request.setView(newReq.getView());
+            }
+            return request;
         }
     }
 
@@ -57,7 +82,7 @@ public class ConflictDetector {
 
             if (statusMap.get(RequestStatus.Accepted) != null ||
                     statusMap.get(RequestStatus.Stable) != null) {
-                return false;
+                return true; // Reject at once
             }
 
             List<Request> pReqs = statusMap.get(RequestStatus.Pending);
@@ -68,14 +93,14 @@ public class ConflictDetector {
             if (rReqs != null)
                 waitSet.addAll(rReqs);
         }
-        return true;
+        return false; // Don't Reject yet.
     }
 
 //    public boolean noConflictFor(Request request) {
 //        int[] objectIds = request.getObjectIds();
 //        for (int oId : objectIds) {
 //            boolean conflict = objReqMap[oId].stream().anyMatch((Request r) ->
-//                    r.getPosition() > request.getPosition() && !r.getPred().contains(request.getId())
+//                    r.getMaxPosition() > request.getMaxPosition() && !r.getPred().contains(request.getId())
 //            );
 //            if(conflict) return false;
 //        }
@@ -88,7 +113,7 @@ public class ConflictDetector {
 //        for (int oId : objectIds) {
 //            maxPosition = Math.max(
 //                    objReqMap[oId].stream().max((Request r1, Request r2)->
-//                            (int) (r1.getPosition() - r2.getPosition())).get().getPosition()
+//                            (int) (r1.getMaxPosition() - r2.getMaxPosition())).get().getMaxPosition()
 //                    , maxPosition);
 //
 //        }

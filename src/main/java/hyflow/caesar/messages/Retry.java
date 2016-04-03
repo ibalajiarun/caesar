@@ -2,6 +2,7 @@ package hyflow.caesar.messages;
 
 import hyflow.common.Request;
 import hyflow.common.RequestId;
+import hyflow.common.RequestStatus;
 
 import java.io.DataInputStream;
 import java.io.IOException;
@@ -41,6 +42,7 @@ public final class Retry extends Message {
 
         request = new Request(requestId, objectIds, payload);
         request.setPosition(position);
+        request.setStatus(RequestStatus.Accepted);
     }
 
     public MessageType getType() {

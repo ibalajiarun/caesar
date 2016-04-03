@@ -22,8 +22,9 @@ import java.util.logging.Logger;
  * @see PacketHandler
  */
 public final class ReaderAndWriter implements ReadWriteHandler {
-    private final SelectorThread selectorThread;
+    private final static Logger logger = Logger.getLogger(ReaderAndWriter.class.getCanonicalName());
     public final SocketChannel socketChannel;
+    private final SelectorThread selectorThread;
     /* Owned by the selector thread */
     private final Queue<byte[]> messages;
     private PacketHandler packetHandler;
@@ -32,7 +33,7 @@ public final class ReaderAndWriter implements ReadWriteHandler {
     /**
      * Creates new <code>ReaderAndWrite</code> using socket channel and selector
      * thread. It will also register this socket channel into selector.
-     * 
+     *
      * @param socketChannel - channel used to read and write data
      * @param selectorThread - selector which will handle all operations from
      *            this channel
@@ -52,7 +53,7 @@ public final class ReaderAndWriter implements ReadWriteHandler {
     /**
      * Registers new packet handler. All received data will be written into its
      * buffer. The reading will be activated on underlying channel.
-     * 
+     *
      * @param packetHandler the packet handler to set
      */
     public void setPacketHandler(PacketHandler packetHandler) {
@@ -62,9 +63,9 @@ public final class ReaderAndWriter implements ReadWriteHandler {
     }
 
     /**
-     * This method is called from selector thread to notify that there are new
+     * This method is called from selector thread to notifyForReq that there are new
      * data available in socket channel.
-     * @throws InterruptedException 
+     * @throws InterruptedException
      */
     public void handleRead() {
         try {
@@ -83,7 +84,7 @@ public final class ReaderAndWriter implements ReadWriteHandler {
                     return;
                 }
 
-                // if the whole packet was read, then notify packet handler;
+                // if the whole packet was read, then notifyForReq packet handler;
                 // calling return instead of break cause that the OP_READ flag
                 // is not set ; to start reading again, new packet handler has
                 // to be set
@@ -107,7 +108,7 @@ public final class ReaderAndWriter implements ReadWriteHandler {
     }
 
     /**
-     * This method is called from selector thread to notify that there is free
+     * This method is called from selector thread to notifyForReq that there is free
      * space in system send buffer, and it is possible to send new packet of
      * data.
      */
@@ -122,7 +123,7 @@ public final class ReaderAndWriter implements ReadWriteHandler {
             if (writeBuffer == null) {
                 byte[] msg = messages.poll();
                 if (msg == null) {
-                    // No more messages to send. Leave write interested off in channel 
+                    // No more messages to send. Leave write interested off in channel
                     return;
                 }
                 // create buffer from message
@@ -144,14 +145,14 @@ public final class ReaderAndWriter implements ReadWriteHandler {
                 // Current message was not fully sent. Register write interest before returning
                 selectorThread.addChannelInterest(socketChannel, SelectionKey.OP_WRITE);
                 return;
-            }   
+            }
         }
     }
 
     /**
      * Adds the message to the queue of messages to sent. This method is
      * asynchronous and will return immediately.
-     * 
+     *
      * @param message
      */
     public void send(final byte[] message) {
@@ -159,7 +160,7 @@ public final class ReaderAndWriter implements ReadWriteHandler {
         if (!socketChannel.isConnected()) {
             return;
         }
-        if (selectorThread.amIInSelector()) {            
+        if (selectorThread.amIInSelector()) {
             messages.add(message);
             handleWrite();
         } else {
@@ -197,10 +198,8 @@ public final class ReaderAndWriter implements ReadWriteHandler {
             logger.warning("Error closing socket: " + e.getMessage());
         }
     }
-    
+
     public SelectorThread getSelectorThread() {
         return selectorThread;
     }
-
-    private final static Logger logger = Logger.getLogger(ReaderAndWriter.class.getCanonicalName());
 }

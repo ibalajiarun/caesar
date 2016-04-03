@@ -4,16 +4,15 @@ import org.junit.Before;
 import org.junit.Test;
 import org.mockito.InOrder;
 
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.mockito.Mockito.*;
 
-public class SingleThreadDispatcherTest {
-    private SingleThreadDispatcher dispatcher;
+public class ThreadDispatcherTest {
+    private ThreadDispatcher dispatcher;
 
     @Before
     public void setUp() {
-        dispatcher = new SingleThreadDispatcher("test");
+        dispatcher = new ThreadDispatcher("test");
     }
 
     @Test

@@ -110,6 +110,10 @@ public final class ProcessDescriptor {
     public static final String TCP_RECONNECT_TIMEOUT = "TcpReconnectMilisecs";
     public static final long DEFAULT_TCP_RECONNECT_TIMEOUT = 1000;
     private final static Logger logger = Logger.getLogger(ProcessDescriptor.class.getCanonicalName());
+    private static final String PROPOSER_MAP_SIZE = "ProposerMapSize";
+    private static final int DEFAULT_PROPOSER_MAP_SIZE = 100000;
+    private static final String NUM_THREADS = "NumThreads";
+    private static final int DEFAULT_NUM_THREADS = 1;
     /*
      * Singleton class with static access. This allows any class on the JVM to
      * statically access the process descriptor without needing to be given a
@@ -128,16 +132,16 @@ public final class ProcessDescriptor {
     public final int fastQuorum;
     public final int classicQuorum;
 
-    public final int windowSize;
+    //    public final int windowSize;
     public final int batchingLevel;
     public final int maxUdpPacketSize;
     public final boolean mayShareSnapshots;
     public final int maxBatchDelay;
-    public final String clientIDGenerator;
-    public final boolean benchmarkRunReplica;
+    //    public final String clientIDGenerator;
+//    public final boolean benchmarkRunReplica;
     public final String network;
     //    public final Replica.CrashModel crashModel;
-    public final String logPath;
+//    public final String logPath;
     public final int firstSnapshotSizeEstimate;
     public final int snapshotMinLogSize;
     public final double snapshotAskRatio;
@@ -148,6 +152,8 @@ public final class ProcessDescriptor {
     public final long tcpReconnectTimeout;
     public final int fdSuspectTimeout;
     public final int fdSendTimeout;
+    public final int proposerMapSize;
+    public final int numThreads;
 
     private ProcessDescriptor(Configuration config, int localId) {
         this.localId = localId;
@@ -158,7 +164,11 @@ public final class ProcessDescriptor {
         this.fastQuorum = this.numReplicas - this.numReplicas / 4;
         this.classicQuorum = this.numReplicas / 2 + 1;
 
-        this.windowSize = config.getIntProperty(WINDOW_SIZE, DEFAULT_WINDOW_SIZE);
+        this.numThreads = config.getIntProperty(NUM_THREADS, DEFAULT_NUM_THREADS);
+
+        this.proposerMapSize = config.getIntProperty(PROPOSER_MAP_SIZE, DEFAULT_PROPOSER_MAP_SIZE);
+
+//        this.windowSize = config.getIntProperty(WINDOW_SIZE, DEFAULT_WINDOW_SIZE);
         this.batchingLevel = config.getIntProperty(BATCH_SIZE, DEFAULT_BATCH_SIZE);
         this.maxUdpPacketSize = config.getIntProperty(MAX_UDP_PACKET_SIZE,
                 DEFAULT_MAX_UDP_PACKET_SIZE);
@@ -166,13 +176,13 @@ public final class ProcessDescriptor {
                 DEFAULT_MAY_SHARE_SNAPSHOTS);
         this.maxBatchDelay = config.getIntProperty(MAX_BATCH_DELAY,
                 DEFAULT_MAX_BATCH_DELAY);
-        this.clientIDGenerator = config.getProperty(CLIENT_ID_GENERATOR,
-                DEFAULT_CLIENT_ID_GENERATOR);
-        this.benchmarkRunReplica = config.getBooleanProperty(BENCHMARK_RUN_REPLICA,
-                DEFAULT_BENCHMARK_RUN_REPLICA);
+//        this.clientIDGenerator = config.getProperty(CLIENT_ID_GENERATOR,
+//                DEFAULT_CLIENT_ID_GENERATOR);
+//        this.benchmarkRunReplica = config.getBooleanProperty(BENCHMARK_RUN_REPLICA,
+//                DEFAULT_BENCHMARK_RUN_REPLICA);
         this.network = config.getProperty(NETWORK, DEFAULT_NETWORK);
 
-        this.logPath = config.getProperty(LOG_PATH, DEFAULT_LOG_PATH);
+//        this.logPath = config.getProperty(LOG_PATH, DEFAULT_LOG_PATH);
 
 //        String defCrash = DEFAULT_CRASH_MODEL.toString();
 //        String crash = config.getProperty(CRASH_MODEL, defCrash);
@@ -211,31 +221,31 @@ public final class ProcessDescriptor {
                 DEFAULT_FD_SEND_TO);
 
 
-        logger.warning(config.toString());
-
-        logger.warning("Configuration: " + WINDOW_SIZE + "=" + windowSize + ", " +
-                       BATCH_SIZE + "=" + batchingLevel + ", " + MAX_BATCH_DELAY +
-                       "=" + maxBatchDelay + ", " + MAX_UDP_PACKET_SIZE + "=" +
-                       maxUdpPacketSize + ", " + NETWORK + "=" + network + ", " +
-                       MAY_SHARE_SNAPSHOTS + "=" + mayShareSnapshots + ", " +
-                BENCHMARK_RUN_REPLICA + "=" + benchmarkRunReplica + ", " +
-                       CLIENT_ID_GENERATOR + "=" + clientIDGenerator);
-        logger.warning("Failure Detection: " + FD_SEND_TO + "=" + fdSendTimeout + ", " +
-                      FD_SUSPECT_TO + "=" + fdSuspectTimeout);
-//        logger.warning("Crash model: " + crashModel + ", LogPath: " + logPath);
-        logger.warning(
-            FIRST_SNAPSHOT_SIZE_ESTIMATE + "=" + firstSnapshotSizeEstimate + ", " +
-                    SNAPSHOT_MIN_LOG_SIZE + "=" + snapshotMinLogSize + ", " +
-                    SNAPSHOT_ASK_RATIO + "=" + snapshotAskRatio + ", " +
-                    SNAPSHOT_FORCE_RATIO + "=" + snapshotForceRatio + ", " +
-                    MIN_SNAPSHOT_SAMPLING + "=" + minSnapshotSampling
-            );
-
-        logger.warning(
-            RETRANSMIT_TIMEOUT + "=" + retransmitTimeout + ", " +
-                    PERIODIC_CATCHUP_TIMEOUT + "=" + periodicCatchupTimeout + ", " +
-                    TCP_RECONNECT_TIMEOUT + "=" + tcpReconnectTimeout
-            );
+//        logger.warning(config.toString());
+//
+//        logger.warning("Configuration: " + WINDOW_SIZE + "=" + windowSize + ", " +
+//                       BATCH_SIZE + "=" + batchingLevel + ", " + MAX_BATCH_DELAY +
+//                       "=" + maxBatchDelay + ", " + MAX_UDP_PACKET_SIZE + "=" +
+//                       maxUdpPacketSize + ", " + NETWORK + "=" + network + ", " +
+//                       MAY_SHARE_SNAPSHOTS + "=" + mayShareSnapshots + ", " +
+//                BENCHMARK_RUN_REPLICA + "=" + benchmarkRunReplica + ", " +
+//                       CLIENT_ID_GENERATOR + "=" + clientIDGenerator);
+//        logger.warning("Failure Detection: " + FD_SEND_TO + "=" + fdSendTimeout + ", " +
+//                      FD_SUSPECT_TO + "=" + fdSuspectTimeout);
+////        logger.warning("Crash model: " + crashModel + ", LogPath: " + logPath);
+//        logger.warning(
+//            FIRST_SNAPSHOT_SIZE_ESTIMATE + "=" + firstSnapshotSizeEstimate + ", " +
+//                    SNAPSHOT_MIN_LOG_SIZE + "=" + snapshotMinLogSize + ", " +
+//                    SNAPSHOT_ASK_RATIO + "=" + snapshotAskRatio + ", " +
+//                    SNAPSHOT_FORCE_RATIO + "=" + snapshotForceRatio + ", " +
+//                    MIN_SNAPSHOT_SAMPLING + "=" + minSnapshotSampling
+//            );
+//
+//        logger.warning(
+//            RETRANSMIT_TIMEOUT + "=" + retransmitTimeout + ", " +
+//                    PERIODIC_CATCHUP_TIMEOUT + "=" + periodicCatchupTimeout + ", " +
+//                    TCP_RECONNECT_TIMEOUT + "=" + tcpReconnectTimeout
+//            );
 
     }
 

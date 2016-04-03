@@ -2,10 +2,12 @@ package hyflow.caesar.messages;
 
 import hyflow.common.Request;
 import hyflow.common.RequestId;
+import hyflow.common.RequestStatus;
 
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -50,6 +52,7 @@ public final class Stable extends Message {
 
         request = new Request(requestId, objectIds, payload);
         request.setPosition(position);
+        request.setStatus(RequestStatus.Stable);
     }
 
     public MessageType getType() {
@@ -67,8 +70,16 @@ public final class Stable extends Message {
                 8 + 4 + payload.length;
     }
 
+    @Override
     public String toString() {
-        return "Stable(" + super.toString() + ")";
+        return "Stable{" + super.toString() +
+                "request=" + request +
+                ", requestId=" + requestId +
+                ", objectIds=" + Arrays.toString(objectIds) +
+                ", pred=" + pred +
+                ", position=" + position +
+                ", payload=" + Arrays.toString(payload) +
+                '}';
     }
 
     protected void write(ByteBuffer bb) {

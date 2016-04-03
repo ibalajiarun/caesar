@@ -3,7 +3,13 @@ package hyflow.caesar;
 import hyflow.caesar.messages.RetryReply;
 import hyflow.common.ProcessDescriptor;
 import hyflow.common.Request;
+import hyflow.common.RequestId;
 import hyflow.common.RequestStatus;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
+import java.util.SortedSet;
+import java.util.TreeSet;
 
 /**
  * Created by balajiarun on 3/15/16.
@@ -13,27 +19,28 @@ public class RetryReplyInfo {
     private final Request request;
     private final RetryReply[] replies;
 
+    private final SortedSet<RequestId> predSet;
+    private final int classicQuorum;
+    private long position;
     private int count;
     private boolean done;
+    private Logger logger = LogManager.getLogger(ProposalReplyInfo.class);
 
-    private final int quorum;
-
-    public RetryReplyInfo(Request request) {
+    public RetryReplyInfo(Request request, int numReplicas) {
         this.request = request;
         this.request.setStatus(RequestStatus.Accepted);
 
-        int numReplicas = ProcessDescriptor.getInstance().numReplicas;
         replies = new RetryReply[numReplicas];
+
+        predSet = new TreeSet<>();
+        position = request.getPosition();
 
         count = 0;
         done = false;
 
-        int failures = (int) Math.floor(ProcessDescriptor.getInstance().numReplicas / 2.0) + 1;
-        quorum = failures + 1;
-    }
+        classicQuorum = ProcessDescriptor.getInstance().classicQuorum;
 
-    public Request getRequest() {
-        return request;
+        logger.debug("Quorum: " + classicQuorum);
     }
 
     public boolean isDone() {
@@ -44,13 +51,23 @@ public class RetryReplyInfo {
         done = true;
     }
 
+    public Request updateAndGetRequest() {
+        request.setPred(predSet);
+        return request;
+    }
+
     public void addReply(RetryReply msg, int sender) {
         replies[sender] = msg;
         count++;
-        request.getPred().addAll(msg.getPred());
+        predSet.addAll(msg.getPred());
     }
 
-    public boolean isQuorum() {
-        return (count >= quorum);
+    public boolean isClassicQuorum() {
+        return (count >= classicQuorum);
     }
+
+    public long getPosition() {
+        return position;
+    }
+
 }

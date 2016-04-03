@@ -1,5 +1,6 @@
 package hyflow.common;
 
+import java.util.Arrays;
 import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListSet;
 
@@ -75,6 +76,13 @@ public final class Request implements Comparable<Request> {
         this.view = view;
     }
 
+    public synchronized void updateWith(Request other) {
+        view = other.view;
+        pred = other.pred;
+        position = other.position;
+        status = other.status;
+    }
+
     @Override
     public boolean equals(Object other) {
         if (other == null || !(other instanceof Request))
@@ -93,8 +101,15 @@ public final class Request implements Comparable<Request> {
 
     @Override
     public String toString() {
-        return String.format("Request(%s; status: %s)", requestId, status);
+        return "Request{" +
+                "requestId=" + requestId +
+                ", objectIds=" + Arrays.toString(objectIds) +
+                ", payload=" + Arrays.toString(payload) +
+                ", pred=" + pred +
+                ", position=" + position +
+                ", status=" + status +
+                ", view=" + view +
+                '}';
     }
-
 
 }

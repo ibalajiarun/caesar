@@ -8,6 +8,8 @@ import org.apache.logging.log4j.Logger;
 import org.zeromq.ZMQ;
 
 import java.io.IOException;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 /**
  * Created by balajiarun on 3/7/16.
@@ -20,7 +22,8 @@ public class ClientManager {
     private final int replicaId;
     private final Replica replica;
     private final ClientThread[] clients;
-    private int count = 0;
+    private final ConcurrentMap<RequestId, RequestId> requestMap;
+    private volatile int count = 0;
 
     public ClientManager(int clientCount, int replicaId, Service service, Replica replica) throws IOException {
         this.service = service;
@@ -33,6 +36,8 @@ public class ClientManager {
         for (int i = 0; i < clientCount; i++) {
             clients[i] = new ClientThread(generator.next());
         }
+
+        this.requestMap = new ConcurrentHashMap<>(clientCount);
     }
 
     public void start() {
@@ -74,8 +79,15 @@ public class ClientManager {
 
     }
 
-    public void upCount() {
-        count++;
+    public void notifyForReq(Request request) {
+        RequestId rId = requestMap.get(request.getId());
+        logger.debug("notifying " + rId);
+        if (rId != null) {
+            count++;
+            synchronized (rId) {
+                rId.notifyAll();
+            }
+        }
     }
 
     class ClientThread extends Thread {
@@ -110,6 +122,9 @@ public class ClientManager {
                     RequestId requestId = request.getId();
 
 //                    start = System.currentTimeMillis();
+
+                    requestMap.put(requestId, requestId);
+
                     synchronized (requestId) {
                         replica.submit(request);
 //                        while(request.getStatus() != RequestStatus.Delivered)
