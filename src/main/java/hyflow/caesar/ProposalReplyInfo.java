@@ -4,8 +4,6 @@ import hyflow.caesar.messages.ProposeReply;
 import hyflow.common.ProcessDescriptor;
 import hyflow.common.Request;
 import hyflow.common.RequestId;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 import java.util.SortedSet;
 import java.util.TreeSet;
@@ -27,7 +25,6 @@ public class ProposalReplyInfo {
 
     private int count;
     private boolean done;
-    private Logger logger = LogManager.getLogger(ProposalReplyInfo.class);
 
     public ProposalReplyInfo(Request request, int numReplicas) {
         this.request = request;
@@ -43,8 +40,8 @@ public class ProposalReplyInfo {
 
         classicQuorum = ProcessDescriptor.getInstance().classicQuorum;
         fastQuorum = ProcessDescriptor.getInstance().fastQuorum;
-
-        logger.debug("Quorum: " + classicQuorum + ":" + fastQuorum);
+//        classicQuorum = numReplicas;
+//        fastQuorum = numReplicas;
     }
 
     public Request updateAndGetRequest() {
@@ -85,5 +82,4 @@ public class ProposalReplyInfo {
     public long getMaxPosition() {
         return position;
     }
-
 }

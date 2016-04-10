@@ -114,6 +114,10 @@ public final class ProcessDescriptor {
     private static final int DEFAULT_PROPOSER_MAP_SIZE = 100000;
     private static final String NUM_THREADS = "NumThreads";
     private static final int DEFAULT_NUM_THREADS = 1;
+    private static final String ZMQ_HOST = "ZmqHost";
+    private static final String ZMQ_PORT = "ZmqPort";
+    private static final String DEFAULT_ZMQ_HOST = "localhost";
+    private static final String DEFAULT_ZMQ_PORT = "5000";
     /*
      * Singleton class with static access. This allows any class on the JVM to
      * statically access the process descriptor without needing to be given a
@@ -154,6 +158,8 @@ public final class ProcessDescriptor {
     public final int fdSendTimeout;
     public final int proposerMapSize;
     public final int numThreads;
+    public final String zmqHost;
+    public final String zmqPort;
 
     private ProcessDescriptor(Configuration config, int localId) {
         this.localId = localId;
@@ -167,6 +173,8 @@ public final class ProcessDescriptor {
         this.numThreads = config.getIntProperty(NUM_THREADS, DEFAULT_NUM_THREADS);
 
         this.proposerMapSize = config.getIntProperty(PROPOSER_MAP_SIZE, DEFAULT_PROPOSER_MAP_SIZE);
+        this.zmqHost = config.getProperty(ZMQ_HOST, DEFAULT_ZMQ_HOST);
+        this.zmqPort = config.getProperty(ZMQ_PORT, DEFAULT_ZMQ_PORT);
 
 //        this.windowSize = config.getIntProperty(WINDOW_SIZE, DEFAULT_WINDOW_SIZE);
         this.batchingLevel = config.getIntProperty(BATCH_SIZE, DEFAULT_BATCH_SIZE);

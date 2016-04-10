@@ -1,6 +1,6 @@
 package hyflow.benchmark.bank;
 
-import hyflow.benchmark.AbstractBenchmark;
+import hyflow.benchmark.AbstractService;
 import hyflow.common.Request;
 import hyflow.common.RequestId;
 import hyflow.transaction.SharedObjectRegistry;
@@ -15,18 +15,20 @@ import java.util.Random;
 /**
  * Created by balajiarun on 3/21/16.
  */
-public class Bank extends AbstractBenchmark {
+public class Bank extends AbstractService {
 
     private static final int INITIAL_BALANCE = 1000;
     private static final int DEFAULT_TRANSACTION_AMOUNT = 10;
     private static final Logger logger = LogManager.getLogger(Bank.class);
     private final int numAccounts;
     private final SharedObjectRegistry registry;
+    private final String requestType;
 
     public Bank(String fileName) throws IOException {
         super(fileName);
 
         numAccounts = Integer.parseInt(configuration.getProperty("numAccounts", "500"));
+        requestType = configuration.getProperty("requestType", "NORMAL");
 
         this.registry = new SharedObjectRegistry(numAccounts);
 
@@ -58,8 +60,7 @@ public class Bank extends AbstractBenchmark {
         return true;
     }
 
-    @Override
-    public Request createRequest(RequestId rId, boolean read) {
+    public Request createRequest(RequestId rId, int clientCount, boolean read) {
         final int PAYLOAD_SIZE = 10;
         final Random random = new Random();
 
@@ -77,12 +78,33 @@ public class Bank extends AbstractBenchmark {
             buffer.put((byte) OpType.Transfer.ordinal());
         }
 
-        src = random.nextInt(this.numAccounts);
-        objectIds[0] = src;
-        do {
-            dst = random.nextInt(this.numAccounts); //random.nextInt(max - min) + min;
-        } while (src >= dst);
-        objectIds[1] = dst;
+        if (requestType.compareTo("TWO_OBJECTS") == 0) {
+
+            src = rId.getClientId();
+            objectIds[0] = src;
+            dst = numAccounts - rId.getClientId() - 1;
+            objectIds[1] = dst;
+
+        } else if (requestType.compareTo("PARTITIONED") == 0) {
+
+            int access = numAccounts / clientCount;
+            src = random.nextInt(access) + (access * rId.getClientId());
+            objectIds[0] = src;
+            do {
+                dst = random.nextInt(access) + (access * rId.getClientId());
+            } while (src > dst);
+            objectIds[1] = dst;
+
+        } else {
+
+            src = random.nextInt(this.numAccounts);
+            objectIds[0] = src;
+            do {
+                dst = random.nextInt(this.numAccounts); //random.nextInt(max - min) + min;
+            } while (src >= dst);
+            objectIds[1] = dst;
+
+        }
 
         buffer.putInt(src);
         buffer.putInt(dst);
@@ -93,7 +115,6 @@ public class Bank extends AbstractBenchmark {
         return request;
     }
 
-    @Override
     public void executeRequest(final Request request) {
         byte[] value = request.getPayload();
         ByteBuffer buffer = ByteBuffer.wrap(value);
@@ -108,6 +129,11 @@ public class Bank extends AbstractBenchmark {
             transfer(src, dst);
         else
             getBalance(src, dst);
+    }
+
+    @Override
+    public int getTotalObjects() {
+        return numAccounts;
     }
 
     public enum OpType {

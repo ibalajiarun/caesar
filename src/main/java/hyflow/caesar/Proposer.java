@@ -5,6 +5,8 @@ import hyflow.caesar.network.Network;
 import hyflow.common.*;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.Marker;
+import org.apache.logging.log4j.MarkerManager;
 
 import java.util.Queue;
 import java.util.Set;
@@ -15,27 +17,30 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.LinkedBlockingQueue;
 
-class Proposer {
+/**
+ * Created by balajiarun on 4/9/16.
+ */
+public class Proposer {
 
+    private static final Logger logger = LogManager.getLogger(Proposer.class);
+    private static final Marker ON_PROPOSE = MarkerManager.getMarker("ON_PROPOSE");
+    private static final Marker PROPOSE_RESUME = MarkerManager.getMarker("PROPOSE_RESUME");
+    private static final Marker ON_PROPOSE_REPLY = MarkerManager.getMarker("ON_PROPOSE_REPLY");
+    private static final Marker STABLE = MarkerManager.getMarker("ON_STABLE");
     private final TimestampGenerator tsGenerator;
     private final ConflictDetector conflictDetector;
     private final Network network;
     private final ThreadDispatcher dipatcher;
     private final Caesar caesar;
-
     private final ConcurrentMap<RequestId, ProposalReplyInfo> proposalReplies;
     private final ConcurrentMap<RequestId, RetryReplyInfo> retryReplies;
-
-    private final ConcurrentHashMap<RequestId, Queue<Runnable>> proposeRunnables;
-    private final ConcurrentHashMap<RequestId, Queue<Runnable>> deliverRunnables;
-
+    private final ConcurrentMap<RequestId, Queue<Runnable>> proposeRunnables;
+    private final ConcurrentMap<RequestId, Queue<Runnable>> deliverRunnables;
     private final ConcurrentMap<RequestId, RequestInfo> ballots;
-
-    private final Logger logger = LogManager.getLogger(Proposer.class);
     private final int localId;
 
-    Proposer(TimestampGenerator tsGenerator, ConflictDetector conflictDetector,
-             Network network, ThreadDispatcher dispatcher, Caesar caesar) {
+    public Proposer(TimestampGenerator tsGenerator, ConflictDetector conflictDetector,
+                    Network network, ThreadDispatcher dispatcher, Caesar caesar) {
         this.tsGenerator = tsGenerator;
         this.conflictDetector = conflictDetector;
         this.network = network;
@@ -52,71 +57,118 @@ class Proposer {
         this.deliverRunnables = new ConcurrentHashMap<>(mapSize);
 
         this.ballots = new ConcurrentHashMap<>(mapSize);
-
-//        QueueMonitor monitor = QueueMonitor.getInstance();
-//        monitor.registerMap("proposalReplies", proposalReplies);
-//        monitor.registerMap("retryReplies", retryReplies);
-//        monitor.registerMap("proposeRunnables", proposeRunnables);
-//        monitor.registerMap("deliverRunnables", deliverRunnables);
     }
 
     void propose(Request request) {
+        logger.entry();
+
         request.setPosition(tsGenerator.newTimestamp());
         request.setView(0);
         sendPropose(0, request);
+
+        logger.exit();
     }
 
     private void sendPropose(int view, Request request) {
+        logger.entry(view, request);
+
         Propose proposeMsg = new Propose(view, request);
 
         proposalReplies.put(request.getId(),
                 new ProposalReplyInfo(request, ProcessDescriptor.getInstance().numReplicas));
 
-        logger.debug("Proposing");
         network.sendToAll(proposeMsg);
+
+        logger.exit();
     }
 
     void onPropose(Propose msg, int sender) {
-        logger.debug("onPropose");
-        Request request = msg.getRequest();
+        logger.entry(msg, sender);
 
-        RequestInfo newReqInfo = new RequestInfo(msg.getView(), RequestStatus.PrePending);
+        int view = msg.getView();
 
-        RequestInfo reqInfo = ballots.putIfAbsent(request.getId(), newReqInfo);
-        if (reqInfo == null)
-            reqInfo = newReqInfo;
+        Request msgRequest = msg.getRequest();
+        RequestId rId = msgRequest.getId();
+
+        RequestInfo reqInfo = ballots.computeIfAbsent(rId, k -> new RequestInfo(rId, view, RequestStatus.PrePending));
 
         synchronized (reqInfo) {
 
-            if (newReqInfo != reqInfo) {
-                if (reqInfo.getView() > msg.getView() ||
-                        reqInfo.getStatusOrdinal() > RequestStatus.PrePending.ordinal())
-                    return;
-            }
-
-            proposeRunnables.put(request.getId(), new ConcurrentLinkedQueue<>());
-
-            conflictDetector.updateRequest(request);
-
-            request.setStatus(RequestStatus.Pending);
-            reqInfo.setStatus(RequestStatus.Pending);
-
-            SortedSet<Request> waitReqs = new TreeSet<>();
-            boolean shouldReject = conflictDetector.computeWaitSetOrReject(request, waitReqs);
-
-            if (shouldReject) {
-                sendProposeReject(msg, sender);
-                reqInfo.setStatus(RequestStatus.Rejected);
+            if (reqInfo.getView() > view
+                    || reqInfo.getStatusOrdinal() > RequestStatus.PrePending.ordinal()) {
+                logger.exit();
                 return;
             }
 
-            proposeResume(msg, sender, waitReqs);
+            proposeRunnables.computeIfAbsent(rId, k -> new ConcurrentLinkedQueue<>());
+
+            Request request = conflictDetector.updateRequest(msgRequest);
+
+            reqInfo.setStatus(RequestStatus.Pending);
+            request.setStatus(RequestStatus.Pending);
+
+            assert request.getStatus() == RequestStatus.Pending : "Request not pending " + request + ";" + reqInfo
+                    + ";" + System.identityHashCode(request);
+
+            SortedSet<Request> waitReqs = new TreeSet<>();
+            boolean rejected = conflictDetector.computeWaitSetOrReject(request, waitReqs);
+
+            if (rejected) {
+//                logger.fatal(ON_PROPOSE, "Rejected: {}\n Wait Set: {}", request, waitReqs);
+                request.setStatus(RequestStatus.Rejected);
+                reqInfo.setStatus(RequestStatus.Rejected);
+                sendProposeReject(request, view, sender);
+            } else {
+                proposeResume(request, view, sender, waitReqs, 0);
+            }
         }
+
+        logger.exit();
     }
 
-    private void sendProposeReject(Propose msg, int sender) {
-        logger.debug("Sending reject for" + msg.getRequest().getId());
-        Request request = msg.getRequest();
+    private void proposeResume(Request request, int view, int sender, SortedSet<Request> waitReqs, int startIdx) {
+        logger.entry(request, sender, waitReqs, startIdx);
+
+        int index = 0;
+        for (Request req : waitReqs) {
+            if (index >= startIdx) {
+
+                Queue<Runnable> prQ = proposeRunnables.get(req.getId());
+                assert prQ != null : "prQ is null for " + request;
+
+                synchronized (prQ) {
+
+                    if (req.getStatus() != RequestStatus.Stable &&
+                            req.getStatus() != RequestStatus.Accepted) {
+
+                        prQ.add(new OnProposeRunner(request, view, sender, index, waitReqs));
+                        logger.exit();
+                        return;
+
+                    } else if (!req.getPred().contains(request.getId())) {
+
+                        sendProposeReject(request, view, sender);
+                        logger.exit();
+                        return;
+
+                    }
+                }
+
+            }
+            index++;
+        }
+
+        Set<RequestId> predSet = conflictDetector.computeNewPredFor(request, request.getPosition());
+        request.setPred(predSet);
+
+        ProposeReply replyMsg = new ProposeReply(0, request, ProposeReply.Status.ACK);
+        network.sendMessage(replyMsg, sender);
+
+        logger.exit();
+    }
+
+    private void sendProposeReject(Request request, int view, int sender) {
+        logger.entry(request, view, sender);
 
         request.setStatus(RequestStatus.Rejected);
 
@@ -126,201 +178,109 @@ class Proposer {
         Set<RequestId> predSet = conflictDetector.computeNewPredFor(request, position);
         request.setPred(predSet);
 
-        ProposeReply replyMsg = new ProposeReply(msg.getView(), request, ProposeReply.Status.NACK);
+        ProposeReply replyMsg = new ProposeReply(view, request, ProposeReply.Status.NACK);
         network.sendMessage(replyMsg, sender);
-    }
 
-    private void proposeResume(Propose msg, int sender, SortedSet<Request> waitReqs) {
-        Request request = msg.getRequest();
-
-        for (Request req : waitReqs) {
-            if (req.getStatus() != RequestStatus.Accepted && req.getStatus() != RequestStatus.Stable) {
-                Queue<Runnable> prQ = proposeRunnables.get(req.getId());
-                assert prQ != null : "Propose Runnable was not created for " + req.getId();
-                prQ.add(new OnProposeRunner(msg, sender, waitReqs));
-                return;
-            } else if (!req.getPred().contains(request.getId())) {
-                sendProposeReject(msg, sender);
-                return;
-            }
-        }
-
-        Set<RequestId> predSet = conflictDetector.computeNewPredFor(request, request.getPosition());
-        request.setPred(predSet);
-
-        ProposeReply replyMsg = new ProposeReply(0, request, ProposeReply.Status.ACK);
-        network.sendMessage(replyMsg, sender);
+        logger.exit();
     }
 
     void onProposeReply(ProposeReply msg, int sender) {
-        logger.debug("proposeReply");
+        logger.entry(msg, sender);
 
         RequestId rId = msg.getRequestId();
         ProposalReplyInfo info = proposalReplies.get(rId);
 
-        assert info != null : "The info object is null for " + rId;
+        // TODO: CHECK IF THIS AFFECTS CORRECTNESS
+        if (info == null)
+            return;
 
         synchronized (info) {
-            info.addReply(msg, sender);
-
             if (info.isDone())
                 return;
+
+            info.addReply(msg, sender);
 
             Request request = info.updateAndGetRequest();
 
             if (!info.hasNack() && info.isFastQuorum()) {
-
+//                Set<RequestId> pred = request.getPred();
+//                for (int i=0;i<rId.getSeqNumber();i++) {
+//                    RequestId findId = new RequestId(rId.getClientId(), i);
+//                    assert pred.contains(findId) : "Not found " + findId + " in " + rId + "Set " + pred;
+//                }
+//                assert pred.size() == rId.getSeqNumber() : request + " Pred Size " + pred.size();
                 Stable stableMsg = new Stable(msg.getView(), request);
-                logger.debug("stabling");
                 network.sendToAll(stableMsg);
 
             } else if (info.hasNack() && info.isClassicQuorum()) {
 
-                logger.debug("Retrying. Updating TS to " + info.getMaxPosition());
                 tsGenerator.setTimestamp(info.getMaxPosition());
 
-                request.setStatus(RequestStatus.Rejected);
                 request.setPosition(tsGenerator.newTimestamp());
 
                 retryReplies.put(rId, new RetryReplyInfo(request, ProcessDescriptor.getInstance().numReplicas));
 
                 Retry retryMsg = new Retry(msg.getView(), request);
-                logger.debug("retrying");
                 network.sendToAll(retryMsg);
 
             } else {
+
+                logger.exit();
                 return;
+
             }
+
             info.setDone();
         }
+
+        logger.exit();
     }
 
-    void onStable(Stable msg, int sender) {
-        logger.debug("onstable");
+    public void onRetry(Retry msg, int sender) {
+        logger.entry(msg, sender);
 
         Request msgRequest = msg.getRequest();
         RequestId rId = msgRequest.getId();
 
-        RequestInfo newReqInfo = new RequestInfo(msg.getView(), RequestStatus.Stable);
-        RequestInfo localInfo = ballots.putIfAbsent(rId, newReqInfo);
-        if (localInfo == null)
-            localInfo = newReqInfo;
+        int view = msg.getView();
 
-        synchronized (localInfo) {
+        RequestInfo reqInfo = ballots.computeIfAbsent(rId,
+                k -> new RequestInfo(rId, view, RequestStatus.Accepted));
 
-            if (newReqInfo != localInfo) {
-                if (localInfo.getView() > msg.getView() ||
-                        localInfo.getStatusOrdinal() > RequestStatus.Stable.ordinal()) {
-                    logger.debug("Returning due to info mismatch: "
-                            + localInfo + "; "
-                            + msg);
-                    return;
-                }
+        synchronized (reqInfo) {
 
-            }
-
-            assert msgRequest.getStatus() == RequestStatus.Stable : "Request is not stable";
-
-            Request request = conflictDetector.updateRequest(msgRequest);
-            localInfo.setStatus(RequestStatus.Stable);
-            assert request.getStatus() == RequestStatus.Stable : "Req is not stable";
-
-//            logger.debug("resuming reqs for" + rId.toString() + "; size: " + proposeRunnables.get(rId).size());
-
-            Queue<Runnable> prQ = proposeRunnables.get(rId);
-            assert prQ != null : "This queue should not be null here";
-            synchronized (prQ) {
-                prQ.forEach(dipatcher::submit);
-            }
-
-            logger.debug("Message stabilized " + rId.toString());
-
-            dipatcher.submit(() -> deliver(request));
-
-        }
-    }
-
-    private void deliver(Request request) {
-        Set<RequestId> predSet = request.getPred();
-
-        Queue<Runnable> newDeliverQ = new LinkedBlockingQueue<>();
-        Queue<Runnable> deliverQ = deliverRunnables.putIfAbsent(request.getId(), newDeliverQ);
-        if (deliverQ == null)
-            deliverQ = newDeliverQ;
-
-        // TODO: There is a problem here if "id" is not present in conflictDetector.
-        predSet.removeIf(id -> {
-            Request predReq = conflictDetector.getRequest(id);
-            return predReq != null &&
-                    (predReq.getStatus() == RequestStatus.Delivered
-                            || predReq.getStatus() == RequestStatus.Stable)
-                    && predReq.getPosition() > request.getPosition();
-        });
-
-        predSet.forEach(predId -> {
-            Request predReq = conflictDetector.getRequest(predId);
-            if (predReq == null || predReq.getStatus() != RequestStatus.Delivered) {
-                Queue<Runnable> newQ = new LinkedBlockingQueue<>();
-                Queue<Runnable> queue = deliverRunnables.putIfAbsent(predId, newQ);
-                if (queue == null)
-                    queue = newQ;
-                queue.add(new OnDeliverRunner(request));
-            }
-        });
-
-        caesar.deliver(request, deliverQ);
-    }
-
-    public void onRetry(Retry msg, int sender) {
-        logger.debug("retry");
-
-        Request msgRequest = msg.getRequest();
-
-//        Request request = conflictDetector.updateAndGetRequest(msgRequest.getId());
-//
-//        // TODO: Fix this. This is not the protocol.
-//        assert request != null : "A retry without the propose. Fix me!";
-//
-//        if (request != null) {
-//            request.setPosition(msgRequest.getMaxPosition());
-//            request.setPred(msgRequest.getPred());
-//            request.setStatus(RequestStatus.Accepted);
-//        } else {
-//            logger.fatal("A retry without the propose. Fix me.");
-//        }
-
-        RequestInfo newReqInfo = new RequestInfo(msg.getView(), RequestStatus.Accepted);
-        RequestInfo localInfo = ballots.putIfAbsent(msgRequest.getId(), newReqInfo);
-        if (localInfo == null)
-            localInfo = newReqInfo;
-
-        synchronized (localInfo) {
-
-            if (newReqInfo != localInfo) {
-                if (localInfo.getView() > msg.getView() ||
-                        localInfo.getStatusOrdinal() > RequestStatus.Accepted.ordinal())
-                    return;
+            if (reqInfo.getView() > view
+                    || reqInfo.getStatusOrdinal() > RequestStatus.Accepted.ordinal()) {
+                logger.exit();
+                return;
             }
 
             Request request = conflictDetector.updateRequest(msgRequest);
 
             SortedSet<RequestId> predSet = conflictDetector.computeNewPredFor(request, request.getPosition());
+            predSet.addAll(request.getPred());
 
             request.setStatus(RequestStatus.Accepted);
+            reqInfo.setStatus(RequestStatus.Accepted);
 
-            RetryReply replyMsg = new RetryReply(0, request.getId(), request.getPred());
+            Queue<Runnable> prQ = proposeRunnables.computeIfAbsent(rId,
+                    k -> new ConcurrentLinkedQueue<>());
+
+            assert prQ != null : "This queue should not be null here";
+
+            synchronized (prQ) {
+                prQ.forEach(dipatcher::submit);
+                prQ.clear();
+            }
+
+            RetryReply replyMsg = new RetryReply(view, rId, predSet);
             network.sendMessage(replyMsg, sender);
         }
     }
 
     public void onRetryReply(RetryReply msg, int sender) {
-        logger.debug("retryreply");
+        logger.entry(msg, sender);
 
-//        RequestId rId = msg.getRequestId();
-//        if(!retryReplies.containsKey(rId)) {
-//            retryReplies.putIfAbsent(rId, new RetryReplyInfo(req));
-//        }
-//        Request req = conflictDetector.getRequest(rId);
         RetryReplyInfo info = retryReplies.get(msg.getRequestId());
 
         synchronized (info) {
@@ -333,46 +293,152 @@ class Proposer {
             Stable stableMsg = new Stable(msg.getView(), info.updateAndGetRequest());
             network.sendToAll(stableMsg);
         }
+
+        logger.exit();
     }
 
-    public void onDelivery(Request request, Queue<Runnable> deliverQ) {
+    void onStable(Stable msg, int sender) {
+        logger.entry(msg, sender);
+
+        Request msgRequest = msg.getRequest();
+        RequestId rId = msgRequest.getId();
+
+        RequestInfo reqInfo = ballots.computeIfAbsent(rId, k -> new RequestInfo(rId, msg.getView(), RequestStatus.Stable));
+
+        synchronized (reqInfo) {
+
+            if (reqInfo.getView() > msg.getView() ||
+                    reqInfo.getStatusOrdinal() > RequestStatus.Stable.ordinal()) {
+                logger.exit();
+                return;
+            }
+
+            logger.debug(STABLE, "ReqInfo: {}", reqInfo);
+
+            Request request = conflictDetector.updateRequest(msgRequest);
+//            Set<RequestId> pred = msgRequest.getPred();
+//            for (int i=0;i<rId.getSeqNumber();i++) {
+//                RequestId findId = new RequestId(rId.getClientId(), i);
+//                assert pred.contains(findId) : "Not found " + findId + " in " + rId + "Set " + pred;
+//            }
+            reqInfo.setStatus(RequestStatus.Stable);
+            request.setStatus(RequestStatus.Stable);
+
+            Queue<Runnable> prQ = proposeRunnables.computeIfAbsent(rId, k -> new ConcurrentLinkedQueue<>());
+
+            synchronized (prQ) {
+                prQ.forEach(dipatcher::submit);
+                prQ.clear();
+            }
+
+//            dipatcher.execute(() -> deliver(request));
+            caesar.deliver(request, null);
+        }
+
+        logger.exit();
+    }
+
+    private void deliver(Request request) {
+        logger.entry(request);
+
+        Set<RequestId> predSet = request.getPred();
+
+        Queue<Runnable> postDelQ = deliverRunnables.computeIfAbsent(request.getId(), k -> new LinkedBlockingQueue<>());
+
+        // TODO: There is a problem here if "id" is not present in conflictDetector.
+        predSet.removeIf(id -> {
+            Request predReq = conflictDetector.getRequest(id);
+            return predReq != null &&
+                    (predReq.getStatus() == RequestStatus.Delivered
+                            || predReq.getStatus() == RequestStatus.Stable)
+                    && predReq.getPosition() > request.getPosition();
+        });
+
+        deliverResume(request, postDelQ, 0);
+    }
+
+    //TODO: CHECK THE CORRECTNESS HERE. BreakLoop P1 is not here. FIXED I THINK NOW
+    private void deliverResume(Request request, Queue<Runnable> postDelQ, int startIdx) {
+        int index = 0;
+        Set<RequestId> predSet = request.getPred();
+
+        for (RequestId predId : predSet) {
+            if (index >= startIdx) {
+                Request predReq = conflictDetector.getRequest(predId);
+
+                if (predReq != null && predReq.getPosition() < request.getPosition()) {
+                    predReq.getPred().remove(request.getId());
+                }
+
+                Queue<Runnable> queue = deliverRunnables.computeIfAbsent(predId,
+                        k -> new LinkedBlockingQueue<>());
+
+                synchronized (queue) {
+                    if (predReq == null || predReq.getStatus() != RequestStatus.Delivered) {
+
+                        queue.add(new OnDeliverRunner(request, postDelQ, index));
+                        logger.exit();
+                        return;
+
+                    }
+                }
+            }
+            index++;
+        }
+
+        caesar.deliver(request, postDelQ);
+    }
+
+    public void onDelivery(Request request, Queue<Runnable> postDelQ) {
+        logger.entry(request, postDelQ);
         request.setStatus(RequestStatus.Delivered);
 
-        assert deliverQ != null : "Why is delivery queue null here?";
-        logger.debug("DeliveryQ Size: " + deliverQ);
+//        assert postDelQ != null : "Delivery queue null for " + request;
 
-        deliverQ.forEach(dipatcher::submit);
+//        synchronized (postDelQ) {
+//            postDelQ.forEach(dipatcher::submit);
+//            postDelQ.clear();
+//        }
+        logger.exit();
     }
 
     private class OnProposeRunner implements Runnable {
 
-        private final Propose msg;
+        private final Request request;
         private final int sender;
         private final SortedSet<Request> waitReqs;
+        private final int index;
+        private final int view;
 
-        public OnProposeRunner(Propose msg, int sender, SortedSet<Request> waitReqs) {
-            this.msg = msg;
+        public OnProposeRunner(Request request, int view, int sender, int index, SortedSet<Request> waitReqs) {
+            this.request = request;
+            this.view = view;
             this.sender = sender;
             this.waitReqs = waitReqs;
+            this.index = index;
         }
 
         @Override
         public void run() {
-            proposeResume(msg, sender, waitReqs);
+            proposeResume(request, view, sender, waitReqs, index);
         }
     }
 
     private class OnDeliverRunner implements Runnable {
 
         private final Request request;
+        private final int index;
+        private final Queue<Runnable> postDelQ;
 
-        public OnDeliverRunner(Request request) {
+        public OnDeliverRunner(Request request, Queue<Runnable> postDelQ, int index) {
             this.request = request;
+            this.postDelQ = postDelQ;
+            this.index = index;
         }
 
         @Override
         public void run() {
-            deliver(request);
+            deliverResume(request, postDelQ, index);
         }
     }
 

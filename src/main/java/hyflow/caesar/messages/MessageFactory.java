@@ -73,6 +73,9 @@ public final class MessageFactory {
             case Stable:
                 message = new Stable(input);
                 break;
+            case Barrier:
+                message = new BarrierPackage(input);
+                break;
 
             default:
                 throw new IllegalArgumentException("Unknown message type: " + type);

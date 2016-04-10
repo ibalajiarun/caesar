@@ -58,7 +58,7 @@ public final class QueueMonitor implements Runnable {
             sb.append("\talpha\n");
             logger.fatal(sb.toString());
             while (true) {
-                Thread.sleep(1000);
+                Thread.sleep(2000);
                 int time = (int) (System.currentTimeMillis() - start);
                 sb = new StringBuilder();
                 sb.append(time + "\t");

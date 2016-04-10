@@ -80,7 +80,12 @@ public final class ProposeReply extends Message {
 
     @Override
     public String toString() {
-        return "ProposeReply:" + super.toString() + "-" + requestId.toString() + ";" + pred + ";" + status + ";" + position;
+        return "ProposeReply{" +
+                "requestId=" + requestId +
+                ", status=" + status +
+                ", pred=" + pred +
+                ", position=" + position +
+                '}';
     }
 
     public enum Status {

@@ -2,6 +2,7 @@ package hyflow.caesar;
 
 import hyflow.caesar.messages.*;
 import hyflow.caesar.network.*;
+import hyflow.common.Pair;
 import hyflow.common.ProcessDescriptor;
 import hyflow.common.Request;
 import hyflow.common.ThreadDispatcher;
@@ -11,21 +12,25 @@ import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
 import java.util.BitSet;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Queue;
 
 public class Caesar {
     private final static Logger logger = LogManager.getLogger(Caesar.class);
-
-    private final Proposer proposer;
+    private final TimestampGenerator tsGen;
     private final ThreadDispatcher dispatcher;
     private final UdpNetwork udpNetwork;
     private final Network network;
     private final ProcessDescriptor pd;
-
+    private final int totalObjects;
+    private Proposer proposer;
+    private ConflictDetector cDetector;
     private DecideCallback callback;
 
+    private Map<String, Pair<Integer, Integer>> barrierMap = new HashMap<String, Pair<Integer, Integer>>();
 
-    public Caesar() throws IOException {
+    public Caesar(int totalObjects) throws IOException {
         this.pd = ProcessDescriptor.getInstance();
 
         this.dispatcher = new ThreadDispatcher("Caesar", pd.numThreads);
@@ -44,9 +49,10 @@ public class Caesar {
         }
         logger.info("Network: " + network.getClass().getCanonicalName());
 
+        this.totalObjects = totalObjects;
 
-        TimestampGenerator tsGen = new TimestampGenerator(pd.localId, pd.numReplicas);
-        ConflictDetector cDetector = new ConflictDetector(10000);
+        this.tsGen = new TimestampGenerator(pd.localId, pd.numReplicas);
+        this.cDetector = new ConflictDetector(totalObjects);
 
         this.proposer = new Proposer(tsGen, cDetector, network, dispatcher, this);
     }
@@ -64,6 +70,8 @@ public class Caesar {
         Network.addMessageListener(MessageType.RetryReply, handler);
         Network.addMessageListener(MessageType.Stable, handler);
 
+        Network.addMessageListener(MessageType.Barrier, handler);
+
         udpNetwork.start();
         network.start();
     }
@@ -80,8 +88,57 @@ public class Caesar {
         return network;
     }
 
-    public void onDelivery(Request request, Queue<Runnable> deliverQ) {
-        proposer.onDelivery(request, deliverQ);
+    public void onDelivery(Request request, Queue<Runnable> postDelQ) {
+        proposer.onDelivery(request, postDelQ);
+    }
+
+    public void refresh() {
+        cDetector = new ConflictDetector(totalObjects);
+        this.proposer = new Proposer(tsGen, cDetector, network, dispatcher, this);
+    }
+
+    private void processBarrierPackage(BarrierPackage barrierPackage) {
+        synchronized (barrierMap) {
+            Pair<Integer, Integer> pair = barrierMap.get(barrierPackage.barrierName);
+            if (pair == null) {
+                pair = new Pair<Integer, Integer>(barrierPackage.n, 0);
+                barrierMap.put(barrierPackage.barrierName, pair);
+            }
+
+            Integer alreadyIn = pair.second + 1;
+            pair.second = alreadyIn;
+            if (alreadyIn == barrierPackage.n) {
+                synchronized (pair) {
+                    pair.notifyAll();
+                }
+                barrierMap.remove(barrierPackage.barrierName);
+            }
+        }
+    }
+
+    public void enterBarrier(String name, int n) {
+        if (n <= 1)
+            return;
+
+        BarrierPackage barrierPackage = new BarrierPackage(name, n);
+        Pair<Integer, Integer> pair;
+        synchronized (barrierMap) {
+            pair = barrierMap.get(barrierPackage.barrierName);
+            if (pair == null) {
+                pair = new Pair<Integer, Integer>(barrierPackage.n, 0);
+                barrierMap.put(barrierPackage.barrierName, pair);
+            }
+        }
+
+        synchronized (pair) {
+            try {
+                network.sendToAll(barrierPackage);
+                while (pair.first != pair.second)
+                    pair.wait();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
     }
 
     private class MessageHandlerImpl implements MessageHandler {
@@ -124,13 +181,16 @@ public class Caesar {
                         break;
 
                     case Stable:
-                        logger.debug("Stable triggering");
                         proposer.onStable((Stable) msg, sender);
                         break;
 
                     case Alive:
                         logger.warn("Alive message received");
                         //TODO: Implement Handler
+                        break;
+
+                    case Barrier:
+                        processBarrierPackage((BarrierPackage) msg);
                         break;
 
                     default:
@@ -143,5 +203,6 @@ public class Caesar {
         }
 
     }
+
 
 }

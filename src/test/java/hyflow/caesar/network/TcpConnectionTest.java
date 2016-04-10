@@ -27,9 +27,9 @@ public class TcpConnectionTest {
 
     @Before
     public void setUp() {
-        pid0 = new PID(0, "localhost", 2000, 3000);
-        pid1 = new PID(1, "localhost", 2001, 3001);
-        pid2 = new PID(2, "localhost", 2002, 3002);
+        pid0 = new PID(0, "localhost", 2000);
+        pid1 = new PID(1, "localhost", 2001);
+        pid2 = new PID(2, "localhost", 2002);
         List<PID> processes = new ArrayList<PID>();
         processes.add(pid0);
         processes.add(pid1);

@@ -15,9 +15,9 @@ public class ConfigurationTest {
     @Test
     public void shouldInitializeProcesses() {
         List<PID> processes = new ArrayList<PID>();
-        processes.add(new PID(0, "localhost", 2000, 3000));
-        processes.add(new PID(1, "localhost", 2001, 3001));
-        processes.add(new PID(2, "localhost", 2002, 3002));
+        processes.add(new PID(0, "localhost", 2000));
+        processes.add(new PID(1, "localhost", 2001));
+        processes.add(new PID(2, "localhost", 2002));
 
         Configuration configuration = new Configuration(processes);
         assertEquals(3, configuration.getN());
@@ -48,9 +48,9 @@ public class ConfigurationTest {
     @Test
     public void shouldBePrintable() {
         List<PID> processes = new ArrayList<PID>();
-        processes.add(new PID(0, "localhost", 2000, 3000));
-        processes.add(new PID(1, "localhost", 2001, 3001));
-        processes.add(new PID(2, "localhost", 2002, 3002));
+        processes.add(new PID(0, "localhost", 2000));
+        processes.add(new PID(1, "localhost", 2001));
+        processes.add(new PID(2, "localhost", 2002));
 
         Configuration configuration = new Configuration(processes);
 
@@ -77,7 +77,6 @@ public class ConfigurationTest {
         assertEquals(3, configuration.getN());
         assertEquals("localhost", configuration.getProcess(0).getHostname());
         assertEquals(2000, configuration.getProcess(0).getReplicaPort());
-        assertEquals(3000, configuration.getProcess(0).getClientPort());
 
         assertEquals(5, configuration.getIntProperty("integer", 3));
         assertEquals(true, configuration.getBooleanProperty("boolean", false));

@@ -61,6 +61,6 @@ startScripts {
 
 }
 
-applicationDefaultJvmArgs = ["-Xmx4096m", "-Xms2048m", "-ea"]
+applicationDefaultJvmArgs = ["-Xmx50g", "-Xms50g", "-ea", "-Djava.util.concurrent.ForkJoinPool.common.parallelism=100"]
 
 mainClassName = "hyflow.main.Main"

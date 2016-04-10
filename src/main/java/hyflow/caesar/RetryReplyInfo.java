@@ -5,8 +5,6 @@ import hyflow.common.ProcessDescriptor;
 import hyflow.common.Request;
 import hyflow.common.RequestId;
 import hyflow.common.RequestStatus;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 import java.util.SortedSet;
 import java.util.TreeSet;
@@ -24,7 +22,6 @@ public class RetryReplyInfo {
     private long position;
     private int count;
     private boolean done;
-    private Logger logger = LogManager.getLogger(ProposalReplyInfo.class);
 
     public RetryReplyInfo(Request request, int numReplicas) {
         this.request = request;
@@ -39,8 +36,6 @@ public class RetryReplyInfo {
         done = false;
 
         classicQuorum = ProcessDescriptor.getInstance().classicQuorum;
-
-        logger.debug("Quorum: " + classicQuorum);
     }
 
     public boolean isDone() {

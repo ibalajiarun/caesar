@@ -9,6 +9,8 @@ import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Set;
+import java.util.TreeSet;
 
 import static org.junit.Assert.*;
 
@@ -17,16 +19,22 @@ import static org.junit.Assert.*;
  */
 public class StableTest extends AbstractMessageTestCase<Stable> {
 
-    private RequestId rId = new RequestId(0, 1);
+    private RequestId rId = new RequestId(0, 10);
     private int[] oIds = new int[]{0, 1, 2};
     private byte[] payload = new byte[]{100};
     private Stable stable;
     private Request request;
+    private Set<RequestId> pred;
 
     @Before
     public void setUp() {
         request = new Request(rId, oIds, payload);
         request.setPosition(100);
+
+        pred = new TreeSet<>();
+        pred.add(new RequestId(0, 1));
+        pred.add(new RequestId(0, 2));
+
         stable = new Stable(0, request);
     }
 
@@ -64,6 +72,7 @@ public class StableTest extends AbstractMessageTestCase<Stable> {
         assertEquals(first.getRequest(), second.getRequest());
         assertArrayEquals(first.getRequest().getObjectIds(), second.getRequest().getObjectIds());
         assertArrayEquals(first.getRequest().getPayload(), second.getRequest().getPayload());
+        assertEquals(first.getRequest().getPred(), second.getRequest().getPred());
     }
 
 }

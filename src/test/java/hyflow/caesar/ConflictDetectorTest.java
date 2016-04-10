@@ -30,7 +30,7 @@ public class ConflictDetectorTest {
 
     @Test
     public void testPutRequest() {
-        detector.putRequest(request);
+        detector.updateRequest(request);
         compare(request, detector.getRequest(new RequestId(0, 1)));
     }
 
@@ -48,7 +48,7 @@ public class ConflictDetectorTest {
     public void testFindWaitRequestReturnNotNull() {
         Request r = new Request(new RequestId(10, 10), new int[]{1, 2, 3}, new byte[]{100});
         r.setPosition(101);
-        detector.putRequest(r);
+        detector.updateRequest(r);
 //        assertNotNull(detector.computeWaitSetOrReject(request));
 //        Request ret = detector.computeWaitSetOrReject(request);
 //        assertEquals(r, ret);
@@ -61,8 +61,8 @@ public class ConflictDetectorTest {
         Request r2 = new Request(new RequestId(3, 2), oIds, payload);
         r2.setPosition(300);
 
-        detector.putRequest(r1);
-        detector.putRequest(r2);
+        detector.updateRequest(r1);
+        detector.updateRequest(r2);
 
 //        assertFalse(detector.noConflictFor(request));
     }

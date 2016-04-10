@@ -5,10 +5,12 @@ package hyflow.common;
  */
 public class RequestInfo {
 
+    private final RequestId rId;
     private int view;
     private RequestStatus status;
 
-    public RequestInfo(int view, RequestStatus status) {
+    public RequestInfo(RequestId rId, int view, RequestStatus status) {
+        this.rId = rId;
         this.view = view;
         this.status = status;
     }
@@ -36,7 +38,8 @@ public class RequestInfo {
     @Override
     public String toString() {
         return "RequestInfo{" +
-                "view=" + view +
+                "rId=" + rId +
+                ", view=" + view +
                 ", status=" + status +
                 '}';
     }

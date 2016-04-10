@@ -1,6 +1,7 @@
 package hyflow.benchmark;
 
-import hyflow.service.Service;
+import hyflow.common.Request;
+import hyflow.common.RequestId;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -12,16 +13,22 @@ import java.util.Properties;
 /**
  * Created by balajiarun on 3/30/16.
  */
-public abstract class AbstractBenchmark implements Service {
+public abstract class AbstractService {
 
-    private final static Logger logger = LogManager.getLogger(AbstractBenchmark.class);
+    private final static Logger logger = LogManager.getLogger(AbstractService.class);
     protected final Properties configuration = new Properties();
 
-    public AbstractBenchmark(String fileName) throws IOException {
+    public AbstractService(String fileName) throws IOException {
         InputStream fis = Paths.get(fileName).toUri().toURL().openStream();
         configuration.load(fis);
         fis.close();
         logger.info("Configuration loaded from file: " + fileName);
     }
+
+    public abstract Request createRequest(RequestId rId, int clientCount, boolean read);
+
+    public abstract void executeRequest(final Request request);
+
+    public abstract int getTotalObjects();
 
 }

@@ -7,6 +7,7 @@ import hyflow.common.RequestStatus;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 
 public final class Propose extends Message {
     private static final long serialVersionUID = 1L;
@@ -24,6 +25,8 @@ public final class Propose extends Message {
         this.objectIds = request.getObjectIds();
         this.position = request.getPosition();
         this.payload = request.getPayload();
+
+        this.request.setStatus(RequestStatus.Pending);
     }
 
     public Propose(DataInputStream input) throws IOException {
@@ -40,9 +43,7 @@ public final class Propose extends Message {
         payload = new byte[input.readInt()];
         input.readFully(payload);
 
-        request = new Request(requestId, objectIds, payload);
-        request.setPosition(position);
-        request.setStatus(RequestStatus.Pending);
+        request = new Request(requestId, objectIds, payload, position, null, RequestStatus.Pending);
     }
 
     public MessageType getType() {
@@ -58,8 +59,15 @@ public final class Propose extends Message {
                 (4 * objectIds.length) + 8 + 4 + payload.length;
     }
 
+    @Override
     public String toString() {
-        return "Propose(" + super.toString() + ")";
+        return "Propose{" +
+                "request=" + request +
+                ", requestId=" + requestId +
+                ", objectIds=" + Arrays.toString(objectIds) +
+                ", position=" + position +
+                ", payload=" + Arrays.toString(payload) +
+                '}';
     }
 
     protected void write(ByteBuffer bb) {
