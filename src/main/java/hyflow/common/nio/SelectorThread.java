@@ -1,5 +1,7 @@
 package hyflow.common.nio;
 
+import hyflow.common.KillOnExceptionHandler;
+
 import java.io.IOException;
 import java.nio.channels.SelectableChannel;
 import java.nio.channels.SelectionKey;
@@ -10,8 +12,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
-import hyflow.common.KillOnExceptionHandler;
 
 /**
  * This class handles all keys registered in underlying selector. It is possible
@@ -24,16 +24,16 @@ import hyflow.common.KillOnExceptionHandler;
  * @see Selector
  */
 public final class SelectorThread extends Thread {
+    private final static Logger logger = Logger.getLogger(SelectorThread.class.getCanonicalName());
     private final Selector selector;
-    
     private final Object taskLock = new Object();
+    private final int id;
     /** list of active tasks waiting for execution in selector thread */
     private List<Runnable> tasks = new ArrayList<Runnable>();
 
-    private final int id;
     /**
      * Initializes new thread responsible for handling channels.
-     * 
+     *
      * @throws IOException if an I/O error occurs
      */
     public SelectorThread(int i) throws IOException {
@@ -48,9 +48,9 @@ public final class SelectorThread extends Thread {
      */
     public void run() {
         logger.info("Selector started.");
-        
+
 //        PerformanceLogger p = PerformanceLogger.getLogger("Selector");
-//        long start = System.currentTimeMillis();//        
+//        long start = System.currentTimeMillis();//
 //        int c = 0;
         // run main loop until thread is interrupted
         while (!Thread.interrupted()) {
@@ -65,7 +65,7 @@ public final class SelectorThread extends Thread {
                 if (selectedCount > 0) {
                     processSelectedKeys();
                 }
-                
+
 //                c++;
 //                p.log((System.currentTimeMillis() - start) + "\t" + id + "\t" + selectedCount + "\n");
 
@@ -111,7 +111,7 @@ public final class SelectorThread extends Thread {
     /**
      * Invokes specified task asynchronously in <code>SelectorThread</code>. The
      * methods returns immediately.
-     * 
+     *
      * @param task - task to run in <code>SelectorThread</code>
      */
     public void beginInvoke(Runnable task) {
@@ -126,12 +126,12 @@ public final class SelectorThread extends Thread {
     /**
      * Sets the interest set of specified channel(the old interest will be
      * erased). This method can be called from any thread.
-     * 
+     *
      * @param channel - the channel to change interest set for
      * @param operations - new interest set
      */
     public void scheduleSetChannelInterest(final SelectableChannel channel, final int operations) {
-        // Minimize locking time: create the object outside the critical section. 
+        // Minimize locking time: create the object outside the critical section.
         Runnable task = new Runnable() {
             public void run() {
                 setChannelInterest(channel, operations);
@@ -143,11 +143,10 @@ public final class SelectorThread extends Thread {
         }
     }
 
-
     /**
      * Sets the interest set of specified channel (the old interest will be
      * erased). This method has to be call from <code>SelectorThread</code>.
-     * 
+     *
      * @param channel - the channel to change interest set for
      * @param operations - new interest set
      */
@@ -163,7 +162,7 @@ public final class SelectorThread extends Thread {
     /**
      * Adds the interest set to specified channel. This method can be called
      * from any thread.
-     * 
+     *
      * @param channel - the channel to add interest set for
      * @param operations - new interest set
      */
@@ -178,7 +177,7 @@ public final class SelectorThread extends Thread {
     /**
      * Adds the interest set to specified channel. This method has to be call
      * from <code>SelectorThread</code>.
-     * 
+     *
      * @param channel - the channel to add interest set for
      * @param operations - new interest set
      */
@@ -194,7 +193,7 @@ public final class SelectorThread extends Thread {
     /**
      * Removes the interest set from specified channel. This method can be
      * called from any thread.
-     * 
+     *
      * @param channel - the channel to remove interest set for
      * @param operations - interests to remove
      */
@@ -209,7 +208,7 @@ public final class SelectorThread extends Thread {
     /**
      * Removes the interest set from specified channel. This method has to be
      * call from <code>SelectorThread</code>.
-     * 
+     *
      * @param channel - the channel to remove interest set for
      * @param operations - interests to remove
      */
@@ -225,11 +224,11 @@ public final class SelectorThread extends Thread {
     /**
      * Registers specified channel and handler to underlying selector. This
      * method has to be call from <code>SelectorThread</code>.
-     * 
+     *
      * @param channel - channel to register in selector
      * @param operations - the initial interest operations for channel
      * @param handler - notified about every ready operation on channel
-     * 
+     *
      * @throws IOException if an I/O error occurs
      */
     public void scheduleRegisterChannel(final SelectableChannel channel, final int operations,
@@ -249,11 +248,11 @@ public final class SelectorThread extends Thread {
     /**
      * Registers specified channel and handler to underlying selector. This
      * method can only be called from selector thread.
-     * 
+     *
      * @param channel - channel to register in selector
      * @param operations - the initial interest operations for channel
      * @param handler - notified about every ready operation on channel
-     * 
+     *
      * @throws IOException if an I/O error occurs
      */
     public void registerChannel(SelectableChannel channel, int operations, Object handler)
@@ -282,13 +281,15 @@ public final class SelectorThread extends Thread {
         // execute the tasks
         List<Runnable> tasksCopy;
         synchronized (taskLock) {
-            if (tasks.isEmpty()) { return; }            
+            if (tasks.isEmpty()) {
+                return;
+            }
             tasksCopy = tasks;
             tasks = new ArrayList<Runnable>(4);
         }
         for (Runnable task : tasksCopy) {
               task.run();
-          }                
+        }
     }
 
     private void closeSelectorThread() {
@@ -299,10 +300,8 @@ public final class SelectorThread extends Thread {
             logger.log(Level.WARNING, "Unexpected exception", e);
         }
     }
-    
+
     public boolean amIInSelector() {
         return Thread.currentThread() == this;
     }
-
-    private final static Logger logger = Logger.getLogger(SelectorThread.class.getCanonicalName());
 }

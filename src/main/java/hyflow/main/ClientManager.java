@@ -13,7 +13,6 @@ import java.io.IOException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Created by balajiarun on 3/7/16.
@@ -30,8 +29,9 @@ public class ClientManager {
     private final Caesar caesar;
     private final Network network;
     private final int numReplicas;
-    private AtomicInteger count = new AtomicInteger(0);
-    private AtomicInteger latency = new AtomicInteger(0);
+
+//    private AtomicInteger count = new AtomicInteger(0);
+//    private AtomicInteger latency = new AtomicInteger(0);
 
     public ClientManager(int clientCount, int replicaId, AbstractService service, Replica replica, Caesar caesar) throws IOException {
         this.service = service;
@@ -72,6 +72,24 @@ public class ClientManager {
         }
     }
 
+    public int aggregateTime() {
+        int time = 0;
+        for (int i = 0; i < clientCount; i++) {
+            time += clients[i].elapsedTime;
+            clients[i].elapsedTime = 0;
+        }
+        return time;
+    }
+
+    public int aggregateCount() {
+        int count = 0;
+        for (int i = 0; i < clientCount; i++) {
+            count += clients[i].requestCount;
+            clients[i].requestCount = 0;
+        }
+        return count;
+    }
+
     public void collectStats(int sleepTime) {
         ZMQ.Context context = ZMQ.context(1);
         ZMQ.Socket sender = context.socket(ZMQ.PUSH);
@@ -80,52 +98,40 @@ public class ClientManager {
         sender.connect("tcp://" + host + ":" + port);
 
         new Thread(() -> {
-//            int iter = 0;
+            int count = 0;
             start();
             while (true) {
                 try {
                     Thread.sleep(sleepTime);
 
-//                    logger.fatal("pausing");
                     pause();
-//                    logger.fatal("pause barrier");
-                    caesar.enterBarrier("pause", numReplicas);
-//                    logger.fatal("Paused");
 
-                    int localLatency = latency.getAndSet(0);
-                    int localCount = count.getAndSet(0);
-                    if (localCount > 0) {
-                        double gtps = localCount / (sleepTime * 0.001);
+                    logger.fatal("Pause barrier");
+                    caesar.enterBarrier("pause" + count, numReplicas);
+                    logger.fatal("Paused");
+//                    int localLatency = latency.getAndSet(0);
+//                    int localCount = count.getAndSet(0);
+                    int totalTime = aggregateTime();
+                    int totalCount = aggregateCount();
+                    if (totalCount > 0) {
+                        double gtps = totalCount / (sleepTime * 0.001);
                         logger.fatal("Tps: " + gtps);
 
-                        double lat = localLatency / localCount;
+                        double lat = totalTime / totalCount;
 
                         byte[] out = ("c:" + Integer.toString((int) gtps) + ":" + Integer.toString((int) lat)).getBytes();
                         sender.send(out, 0);
                     }
 
-//                    iter++;
-//                    if(iter > 5) {
-//                        logger.fatal("refresh barrier");
-//                        caesar.enterBarrier("refresh", numReplicas);
-//                        logger.fatal("refeshing");
-//
-//                        caesar.refresh();
-//
-//                        logger.fatal("resume barrier");
-//                        caesar.enterBarrier("resume", numReplicas);
-//                        logger.fatal("resumed");
-//                        iter = 0;
-//                    }
-
                     caesar.refresh();
                     System.gc();
                     System.gc();
 
-//                    logger.fatal("refresh barrier");
-                    caesar.enterBarrier("refresh", numReplicas);
+                    logger.fatal("Refresh barrier");
+                    caesar.enterBarrier("refresh" + count, numReplicas);
                     logger.fatal("refreshed");
 
+                    count++;
                     proceed();
 
                 } catch (InterruptedException e) {
@@ -139,10 +145,7 @@ public class ClientManager {
 
     public void notifyForReq(Request request) {
         RequestId rId = requestMap.get(request.getId());
-//        logger.fatal("notifying " + rId);
         if (rId != null) {
-            count.incrementAndGet();
-//            logger.fatal("notifying " + rId);
             synchronized (rId) {
                 rId.notifyAll();
             }
@@ -152,12 +155,9 @@ public class ClientManager {
     class ClientThread extends Thread {
 
         private final int clientId;
-
+        public int requestCount = 0;
+        public int elapsedTime = 0;
         private int sequenceNum = 0;
-
-        private int requestCount = 0;
-        private int aggregateLatency = 0;
-
         private AtomicBoolean pause = new AtomicBoolean(false);
         private AtomicBoolean paused = new AtomicBoolean(false);
 
@@ -193,19 +193,20 @@ public class ClientManager {
                         while (request.getStatus() != RequestStatus.Delivered) {
                             requestId.wait(100);
                             count++;
-                            if (count % 20 == 0) {
+                            if (count % 5 == 0) {
                                 logger.fatal("Too long " + request);
-                                break;
                             }
                         }
-//                        assert request.getStatus() == RequestStatus.Delivered : "Not Delivered" + request;
+                        assert request.getStatus() == RequestStatus.Delivered : "Not Delivered" + request;
                     }
+
                     elapsed = System.currentTimeMillis() - start;
 
                     if (count > 5)
                         logger.fatal("TOOK " + elapsed + " FOR " + requestId);
 
-                    latency.addAndGet((int) elapsed);
+                    requestCount++;
+                    elapsedTime += (int) elapsed;
                 }
 
             } catch (InterruptedException e) {
@@ -224,16 +225,6 @@ public class ClientManager {
 
         public void proceed() {
             pause.getAndSet(false);
-        }
-
-        public int getLatency() {
-            return aggregateLatency / requestCount;
-        }
-
-        public int getRequestCount() {
-            int ret = requestCount;
-            requestCount = 0;
-            return ret;
         }
 
     }

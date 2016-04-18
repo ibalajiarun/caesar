@@ -107,12 +107,14 @@ public class Caesar {
 
             Integer alreadyIn = pair.second + 1;
             pair.second = alreadyIn;
-            if (alreadyIn == barrierPackage.n) {
+            if (alreadyIn >= barrierPackage.n - 1) {
                 synchronized (pair) {
                     pair.notifyAll();
                 }
-                barrierMap.remove(barrierPackage.barrierName);
+                if (alreadyIn == barrierPackage.n)
+                    barrierMap.remove(barrierPackage.barrierName);
             }
+//            logger.fatal("pair4 {} {} {}", barrierPackage.barrierName, pair.first, pair.second);
         }
     }
 
@@ -133,11 +135,22 @@ public class Caesar {
         synchronized (pair) {
             try {
                 network.sendToAll(barrierPackage);
-                while (pair.first != pair.second)
+                while (pair.second < pair.first - 1) {
+//                    logger.fatal("pair1 {} {} {}", name, pair.first, pair.second);
                     pair.wait();
+                }
+//                logger.fatal("pair2 {} {} {}", name, pair.first, pair.second);
+                if (pair.first != pair.second) {
+//                    logger.fatal("pair3 {} {} {}", name, pair.first, pair.second);
+                    pair.wait(100);
+                }
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
+        }
+
+        synchronized (barrierMap) {
+            barrierMap.remove(barrierPackage.barrierName);
         }
     }
 

@@ -1,16 +1,12 @@
 package hyflow.caesar.network;
 
-import java.util.BitSet;
-import java.util.Collections;
-import java.util.EnumMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.logging.Logger;
-
-import hyflow.common.ProcessDescriptor;
 import hyflow.caesar.messages.Message;
 import hyflow.caesar.messages.MessageType;
+import hyflow.common.ProcessDescriptor;
+
+import java.util.*;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.logging.Logger;
 
 /**
  * This class provides methods to communicate with other processes (replicas).
@@ -19,6 +15,22 @@ import hyflow.caesar.messages.MessageType;
  *
  */
 public abstract class Network {
+
+    /**
+     * For each message type, keeps a list of it's listeners.
+     * <p>
+     * The list is shared between networks
+     */
+    protected static final Map<MessageType, CopyOnWriteArrayList<MessageHandler>> msgListeners;
+    private final static Logger logger = Logger.getLogger(Network.class.getCanonicalName());
+
+    static {
+        msgListeners = Collections.synchronizedMap(
+                new EnumMap<MessageType, CopyOnWriteArrayList<MessageHandler>>(MessageType.class));
+        for (MessageType ms : MessageType.values()) {
+            msgListeners.put(ms, new CopyOnWriteArrayList<MessageHandler>());
+        }
+    }
 
     // // // Public interface - send, send to all and add / remove listeners //
     // // //
@@ -39,46 +51,6 @@ public abstract class Network {
         this.ALL = new BitSet(N);
         ALL.set(0, N, true);
     }
-
-
-    public abstract boolean send(byte[] message, int destination);
-
-    /**
-     * Sends the message to process with specified id.
-     *
-     * @param message the message to send
-     * @param destinations bit set with marked replica id's to send message to
-     */
-    public abstract void sendMessage(Message message, BitSet destinations);
-
-    /**
-     * Sends the message to process with specified id.
-     *
-     * @param message the message to send
-     * @param destination the id of replica to send message to
-     */
-    public void sendMessage(Message message, int destination) {
-        if (destination == localId) {
-            fireReceiveMessage(message, localId);
-        } else {
-            send(message.toByteArray(), destination);
-        }
-    }
-
-    /**
-     * Sends the message to all processes.
-     *
-     * @param message the message to send
-     */
-    public void sendToAll(Message message) {
-        sendMessage(message, ALL);
-    }
-
-    public void sendToOthers(Message message) {
-        sendMessage(message, OTHERS);
-    }
-
-    public abstract void start();
 
     /**
      * Adds a new message listener for a certain type of message or all messages
@@ -112,21 +84,46 @@ public abstract class Network {
         }
     }
 
+    public abstract boolean send(byte[] message, int destination);
+
+    /**
+     * Sends the message to process with specified id.
+     *
+     * @param message the message to send
+     * @param destinations bit set with marked replica id's to send message to
+     */
+    public abstract void sendMessage(Message message, BitSet destinations);
+
+    /**
+     * Sends the message to process with specified id.
+     *
+     * @param message the message to send
+     * @param destination the id of replica to send message to
+     */
+    public void sendMessage(Message message, int destination) {
+        if (destination == localId) {
+            fireReceiveMessage(message, localId);
+        } else {
+            send(message.toByteArray(), destination);
+        }
+    }
+
     // // // Protected part - for implementing the subclasses // // //
 
     /**
-     * For each message type, keeps a list of it's listeners.
+     * Sends the message to all processes.
      *
-     * The list is shared between networks
+     * @param message the message to send
      */
-    protected static final Map<MessageType, CopyOnWriteArrayList<MessageHandler>> msgListeners;
-    static {
-        msgListeners = Collections.synchronizedMap(
-                new EnumMap<MessageType, CopyOnWriteArrayList<MessageHandler>>(MessageType.class));
-        for (MessageType ms : MessageType.values()) {
-            msgListeners.put(ms, new CopyOnWriteArrayList<MessageHandler>());
-        }
+    public void sendToAll(Message message) {
+        sendMessage(message, ALL);
     }
+
+    public void sendToOthers(Message message) {
+        sendMessage(message, OTHERS);
+    }
+
+    public abstract void start();
 
     /**
      * Notifies all active network listeners that new message was received.
@@ -164,6 +161,4 @@ public abstract class Network {
         }
         return handled;
     }
-
-    private final static Logger logger = Logger.getLogger(Network.class.getCanonicalName());
 }

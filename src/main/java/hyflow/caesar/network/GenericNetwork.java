@@ -1,14 +1,15 @@
 package hyflow.caesar.network;
 
+import hyflow.caesar.messages.Message;
+import hyflow.common.PID;
+import hyflow.common.ProcessDescriptor;
+
 import java.util.BitSet;
 import java.util.logging.Logger;
 
-import hyflow.common.PID;
-import hyflow.common.ProcessDescriptor;
-import hyflow.caesar.messages.Message;
-import hyflow.caesar.messages.MessageFactory;
-
 public class GenericNetwork extends Network {
+    @SuppressWarnings("unused")
+    private final static Logger _logger = Logger.getLogger(GenericNetwork.class.getCanonicalName());
     private final UdpNetwork udpNetwork;
     private final TcpNetwork tcpNetwork;
     private final PID[] processes;
@@ -66,9 +67,6 @@ public class GenericNetwork extends Network {
         all.set(0, processes.length);
         sendMessage(message, all);
     }
-
-    @SuppressWarnings("unused")
-    private final static Logger _logger = Logger.getLogger(GenericNetwork.class.getCanonicalName());
 
     @Override
     public boolean send(byte[] message, int destination) {
