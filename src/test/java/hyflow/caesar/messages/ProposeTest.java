@@ -16,19 +16,19 @@ import static org.junit.Assert.*;
 /**
  * Created by balajiarun on 3/16/16.
  */
-public class ProposeTest extends AbstractMessageTestCase<Propose> {
+public class ProposeTest extends AbstractMessageTestCase<FastPropose> {
 
     private RequestId rId = new RequestId(0, 1);
     private int[] oIds = new int[]{0, 1, 2};
     private byte[] payload = new byte[]{100};
-    private Propose propose;
+    private FastPropose propose;
     private Request request;
 
     @Before
     public void setUp() {
         request = new Request(rId, oIds, payload);
         request.setPosition(100);
-        propose = new Propose(0, request);
+        propose = new FastPropose(0, request);
     }
 
     @Test
@@ -48,20 +48,20 @@ public class ProposeTest extends AbstractMessageTestCase<Propose> {
         DataInputStream dis = new DataInputStream(bis);
 
         MessageType type = MessageType.values()[dis.readByte()];
-        Propose deserializedPropose = new Propose(dis);
+        FastPropose deserializedPropose = new FastPropose(dis);
 
-        assertEquals(MessageType.Propose, type);
+        assertEquals(MessageType.FastPropose, type);
         compare(propose, deserializedPropose);
         assertEquals(0, dis.available());
     }
 
     @Test
     public void shouldReturnCorrectMessageType() {
-        assertEquals(MessageType.Propose, propose.getType());
+        assertEquals(MessageType.FastPropose, propose.getType());
     }
 
     @Override
-    protected void compare(Propose first, Propose second) {
+    protected void compare(FastPropose first, FastPropose second) {
         assertEquals(first.getRequest(), second.getRequest());
         assertEquals(first.getRequest().getPosition(), second.getRequest().getPosition());
         assertArrayEquals(first.getRequest().getObjectIds(), second.getRequest().getObjectIds());

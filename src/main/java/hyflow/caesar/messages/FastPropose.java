@@ -7,9 +7,8 @@ import hyflow.common.RequestStatus;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.Arrays;
 
-public final class Propose extends Message {
+public final class FastPropose extends Message {
     private static final long serialVersionUID = 1L;
 
     private final Request request;
@@ -18,7 +17,7 @@ public final class Propose extends Message {
     private final long position;
     private final byte[] payload;
 
-    public Propose(int view, Request request) {
+    public FastPropose(int view, Request request) {
         super(view);
         this.request = request;
         this.requestId = request.getId();
@@ -29,7 +28,7 @@ public final class Propose extends Message {
         this.request.setStatus(RequestStatus.Pending);
     }
 
-    public Propose(DataInputStream input) throws IOException {
+    public FastPropose(DataInputStream input) throws IOException {
         super(input);
         requestId = new RequestId(input.readInt(), input.readInt());
 
@@ -47,7 +46,7 @@ public final class Propose extends Message {
     }
 
     public MessageType getType() {
-        return MessageType.Propose;
+        return MessageType.FastPropose;
     }
 
     public Request getRequest() {
@@ -61,12 +60,8 @@ public final class Propose extends Message {
 
     @Override
     public String toString() {
-        return "Propose{" +
+        return "FastPropose{" +
                 "request=" + request +
-                ", requestId=" + requestId +
-                ", objectIds=" + Arrays.toString(objectIds) +
-                ", position=" + position +
-                ", payload=" + Arrays.toString(payload) +
                 '}';
     }
 

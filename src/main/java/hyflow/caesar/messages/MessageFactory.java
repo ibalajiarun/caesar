@@ -58,18 +58,27 @@ public final class MessageFactory {
 
         Message message;
         switch (type) {
-            case Propose:
-                message = new Propose(input);
+            case FastPropose:
+                message = new FastPropose(input);
                 break;
-            case ProposeReply:
-                message = new ProposeReply(input);
+            case FastProposeReply:
+                message = new FastProposeReply(input);
                 break;
+
+            case SlowPropose:
+                message = new SlowPropose(input);
+                break;
+            case SlowProposeReply:
+                message = new SlowProposeReply(input);
+                break;
+
             case Retry:
                 message = new Retry(input);
                 break;
             case RetryReply:
                 message = new RetryReply(input);
                 break;
+
             case Stable:
                 message = new Stable(input);
                 break;

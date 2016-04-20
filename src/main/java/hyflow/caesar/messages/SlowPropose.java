@@ -7,11 +7,10 @@ import hyflow.common.RequestStatus;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.Arrays;
 import java.util.Set;
 import java.util.TreeSet;
 
-public final class Retry extends Message {
+public final class SlowPropose extends Message {
     private static final long serialVersionUID = 1L;
 
     private final Request request;
@@ -21,7 +20,7 @@ public final class Retry extends Message {
     private final byte[] payload;
     private final Set<RequestId> pred;
 
-    public Retry(int view, Request request) {
+    public SlowPropose(int view, Request request) {
         super(view);
         this.request = request;
         this.requestId = request.getId();
@@ -31,13 +30,13 @@ public final class Retry extends Message {
         this.payload = request.getPayload();
     }
 
-    public Retry(DataInputStream input) throws IOException {
+    public SlowPropose(DataInputStream input) throws IOException {
         super(input);
         this.requestId = new RequestId(input.readInt(), input.readInt());
 
         int length = input.readInt();
         this.objectIds = new int[length];
-        for (int i=0;i<length;i++) {
+        for (int i = 0; i < length; i++) {
             this.objectIds[i] = input.readInt();
         }
 
@@ -50,11 +49,11 @@ public final class Retry extends Message {
         this.payload = new byte[input.readInt()];
         input.readFully(payload);
 
-        request = new Request(requestId, objectIds, payload, position, pred, RequestStatus.Accepted);
+        request = new Request(requestId, objectIds, payload, position, pred, RequestStatus.SlowPending);
     }
 
     public MessageType getType() {
-        return MessageType.Retry;
+        return MessageType.SlowPropose;
     }
 
     public Request getRequest() {
@@ -68,12 +67,16 @@ public final class Retry extends Message {
                 8 + 4 + payload.length;
     }
 
+    public String toString() {
+        return "Retry(" + super.toString() + ")";
+    }
+
     protected void write(ByteBuffer bb) {
         request.getId().writeTo(bb);
 
         int[] oIds = request.getObjectIds();
         bb.putInt(oIds.length);
-        for(int oId : oIds)
+        for (int oId : oIds)
             bb.putInt(oId);
 
         bb.putInt(pred.size());
@@ -84,17 +87,5 @@ public final class Retry extends Message {
         bb.putLong(request.getPosition());
         bb.putInt(request.getPayload().length);
         bb.put(request.getPayload());
-    }
-
-    @Override
-    public String toString() {
-        return "Retry{" +
-                "request=" + request +
-                ", requestId=" + requestId +
-                ", objectIds=" + Arrays.toString(objectIds) +
-                ", position=" + position +
-                ", payload=" + Arrays.toString(payload) +
-                ", pred=" + pred +
-                '}';
     }
 }

@@ -190,14 +190,14 @@ public class ClientManager {
 
                     synchronized (requestId) {
                         replica.submit(request);
-                        while (request.getStatus() != RequestStatus.Delivered) {
+                        while (request.getStatus() != RequestStatus.Stable) {
                             requestId.wait(100);
                             count++;
                             if (count % 5 == 0) {
                                 logger.fatal("Too long " + request);
                             }
                         }
-                        assert request.getStatus() == RequestStatus.Delivered : "Not Delivered" + request;
+                        assert request.getStatus() == RequestStatus.Stable : "Not Delivered" + request;
                     }
 
                     elapsed = System.currentTimeMillis() - start;

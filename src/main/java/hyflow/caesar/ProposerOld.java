@@ -23,7 +23,7 @@
 //    private final ThreadDispatcher dipatcher;
 //    private final Caesar caesar;
 //
-//    private final ConcurrentMap<RequestId, ProposalReplyInfo> proposalReplies;
+//    private final ConcurrentMap<RequestId, FastProposeReplyInfo> proposalReplies;
 //    private final ConcurrentMap<RequestId, RetryReplyInfo> retryReplies;
 //
 //    private final ConcurrentHashMap<RequestId, Queue<Runnable>> proposeRunnables;
@@ -60,17 +60,17 @@
 ////        monitor.registerMap("deliverRunnables", deliverRunnables);
 //    }
 //
-//    void propose(Request request) {
+//    void fastPropose(Request request) {
 //        request.setPosition(tsGenerator.newTimestamp());
 //        request.setView(0);
 //        sendPropose(0, request);
 //    }
 //
 //    private void sendPropose(int view, Request request) {
-//        Propose proposeMsg = new Propose(view, request);
+//        FastPropose proposeMsg = new FastPropose(view, request);
 //
 //        proposalReplies.put(request.getId(),
-//                new ProposalReplyInfo(request, ProcessDescriptor.getInstance().numReplicas));
+//                new FastProposeReplyInfo(request, ProcessDescriptor.getInstance().numReplicas));
 //
 //        if(logger.isDebugEnabled()) {
 //            logger.debug("Proposing");
@@ -78,7 +78,7 @@
 //        network.sendToAll(proposeMsg);
 //    }
 //
-//    void onPropose(Propose msg, int sender) {
+//    void onPropose(FastPropose msg, int sender) {
 //        Request msgRequest = msg.getRequest();
 //        logger.debug("onPropose " + msgRequest);
 //
@@ -133,7 +133,7 @@
 //        Set<RequestId> predSet = conflictDetector.computeNewPredFor(request, position);
 //        request.setPred(predSet);
 //
-//        ProposeReply replyMsg = new ProposeReply(view, request, ProposeReply.Status.NACK);
+//        FastProposeReply replyMsg = new FastProposeReply(view, request, FastProposeReply.Status.NACK);
 //        network.sendMessage(replyMsg, sender);
 //    }
 //
@@ -143,7 +143,7 @@
 //            if(index >= startIdx) {
 //                if (req.getStatus() != RequestStatus.Accepted && req.getStatus() != RequestStatus.Stable) {
 //                    Queue<Runnable> prQ = proposeRunnables.get(req.getId());
-//                    assert prQ != null : "Propose Runnable was not created for " + req.getId();
+//                    assert prQ != null : "FastPropose Runnable was not created for " + req.getId();
 //                    synchronized (prQ) {
 //                        if (req.getStatus() != RequestStatus.Accepted && req.getStatus() != RequestStatus.Stable) {
 //                            prQ.add(new OnProposeRunner(request, view, sender, waitReqs, index));
@@ -164,15 +164,15 @@
 //        Set<RequestId> predSet = conflictDetector.computeNewPredFor(request, request.getPosition());
 //        request.setPred(predSet);
 //
-//        ProposeReply replyMsg = new ProposeReply(0, request, ProposeReply.Status.ACK);
+//        FastProposeReply replyMsg = new FastProposeReply(0, request, FastProposeReply.Status.ACK);
 //        network.sendMessage(replyMsg, sender);
 //    }
 //
-//    void onProposeReply(ProposeReply msg, int sender) {
+//    void onProposeReply(FastProposeReply msg, int sender) {
 //        logger.debug("proposeReply " + msg.getRequestId() + "-" + msg.getStatus());
 //
 //        RequestId rId = msg.getRequestId();
-//        ProposalReplyInfo info = proposalReplies.get(rId);
+//        FastProposeReplyInfo info = proposalReplies.get(rId);
 //
 //        // TODO: CHECK IF THIS AFFECTS CORRECTNESS
 //        if(info == null)
@@ -321,14 +321,14 @@
 ////        Request request = conflictDetector.updateAndGetRequest(msgRequest.getId());
 ////
 ////        // TODO: Fix this. This is not the protocol.
-////        assert request != null : "A retry without the propose. Fix me!";
+////        assert request != null : "A retry without the fastPropose. Fix me!";
 ////
 ////        if (request != null) {
 ////            request.setPosition(msgRequest.getMaxPosition());
 ////            request.setPred(msgRequest.getPred());
 ////            request.setStatus(RequestStatus.Accepted);
 ////        } else {
-////            logger.fatal("A retry without the propose. Fix me.");
+////            logger.fatal("A retry without the fastPropose. Fix me.");
 ////        }
 //
 //        RequestInfo newReqInfo = new RequestInfo(msg.getView(), RequestStatus.Accepted);

@@ -1,15 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Configuration status="WARN">
-    <Filters>
-        <Marker marker="STABLE" onMatch="ACCEPT" onMismatch="DENY"/>
-    </Filters>
     <Appenders>
         <Console name="Console" target="SYSTEM_OUT">
-            <PatternLayout pattern="%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n"/>
+            <ThresholdFilter level="FATAL"/>
+            <PatternLayout pattern="%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} %M - %msg%n"/>
         </Console>
+        <File name="File" fileName="${sys:id}.log" append="false">
+            <PatternLayout pattern="%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} %M - %msg%n"/>
+        </File>
     </Appenders>
     <Loggers>
-        <Root level="fatal">
+        <Root level="ALL">
+            <AppenderRef ref="File"/>
             <AppenderRef ref="Console"/>
         </Root>
     </Loggers>

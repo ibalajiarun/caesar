@@ -5,10 +5,16 @@ package hyflow.common;
  */
 public enum RequestStatus {
     Waiting,
+
     PrePending,
     Pending,
+
+    SlowPrePending,
+    SlowPending,
+
     Rejected,
     Accepted,
+
     Stable,
     Delivered
 }

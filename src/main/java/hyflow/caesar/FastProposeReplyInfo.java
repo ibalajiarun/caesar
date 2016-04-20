@@ -1,20 +1,21 @@
 package hyflow.caesar;
 
-import hyflow.caesar.messages.ProposeReply;
+import hyflow.caesar.messages.FastProposeReply;
 import hyflow.common.ProcessDescriptor;
 import hyflow.common.Request;
 import hyflow.common.RequestId;
 
+import java.util.Arrays;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
 /**
  * Created by balajiarun on 3/14/16.
  */
-public class ProposalReplyInfo {
+public class FastProposeReplyInfo {
 
     private final Request request;
-    private final ProposeReply[] replies;
+    private final FastProposeReply[] replies;
 
     private final int fastQuorum;
     private final int classicQuorum;
@@ -26,10 +27,10 @@ public class ProposalReplyInfo {
     private int count;
     private boolean done;
 
-    public ProposalReplyInfo(Request request, int numReplicas) {
+    public FastProposeReplyInfo(Request request, int numReplicas) {
         this.request = request;
 
-        replies = new ProposeReply[numReplicas];
+        replies = new FastProposeReply[numReplicas];
 
         predSet = new TreeSet<>();
         position = request.getPosition();
@@ -58,12 +59,12 @@ public class ProposalReplyInfo {
         done = true;
     }
 
-    public void addReply(ProposeReply msg, int sender) {
+    public void addReply(FastProposeReply msg, int sender) {
         replies[sender] = msg;
         count++;
         predSet.addAll(msg.getPred());
         if (!nack)
-            nack = (msg.getStatus() == ProposeReply.Status.NACK);
+            nack = (msg.getStatus() == FastProposeReply.Status.NACK);
         position = msg.position() > position ? msg.position() : position;
     }
 
@@ -81,5 +82,20 @@ public class ProposalReplyInfo {
 
     public long getMaxPosition() {
         return position;
+    }
+
+    @Override
+    public String toString() {
+        return "FastProposeReplyInfo{" +
+                "request=" + request +
+                ", replies=" + Arrays.toString(replies) +
+                ", fastQuorum=" + fastQuorum +
+                ", classicQuorum=" + classicQuorum +
+                ", predSet=" + predSet +
+                ", position=" + position +
+                ", nack=" + nack +
+                ", count=" + count +
+                ", done=" + done +
+                '}';
     }
 }

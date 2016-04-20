@@ -78,14 +78,22 @@ public class Bank extends AbstractService {
             buffer.put((byte) OpType.Transfer.ordinal());
         }
 
-        if (requestType.compareTo("TWO_OBJECTS") == 0) {
+
+        if (requestType.equals("TWO_OBJECTS")) {
+
+            src = 0;
+            objectIds[0] = src;
+            dst = 1;
+            objectIds[1] = dst;
+
+        } else if (requestType.equals("PARTITIONED_TWO_OBJECTS")) {
 
             src = rId.getClientId();
             objectIds[0] = src;
             dst = numAccounts - rId.getClientId() - 1;
             objectIds[1] = dst;
 
-        } else if (requestType.compareTo("PARTITIONED") == 0) {
+        } else if (requestType.equals("PARTITIONED")) {
 
             int access = numAccounts / clientCount;
             src = random.nextInt(access) + (access * rId.getClientId());

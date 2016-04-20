@@ -64,8 +64,8 @@ public class Caesar {
 
         MessageHandler handler = new MessageHandlerImpl();
         Network.addMessageListener(MessageType.Alive, handler);
-        Network.addMessageListener(MessageType.Propose, handler);
-        Network.addMessageListener(MessageType.ProposeReply, handler);
+        Network.addMessageListener(MessageType.FastPropose, handler);
+        Network.addMessageListener(MessageType.FastProposeReply, handler);
         Network.addMessageListener(MessageType.Retry, handler);
         Network.addMessageListener(MessageType.RetryReply, handler);
         Network.addMessageListener(MessageType.Stable, handler);
@@ -81,7 +81,7 @@ public class Caesar {
     }
 
     public void propose(final Request request) {
-        dispatcher.execute(() -> proposer.propose(request));
+        dispatcher.execute(() -> proposer.fastPropose(request));
     }
 
     public Network getNetwork() {
@@ -114,7 +114,6 @@ public class Caesar {
                 if (alreadyIn == barrierPackage.n)
                     barrierMap.remove(barrierPackage.barrierName);
             }
-//            logger.fatal("pair4 {} {} {}", barrierPackage.barrierName, pair.first, pair.second);
         }
     }
 
@@ -135,13 +134,10 @@ public class Caesar {
         synchronized (pair) {
             try {
                 network.sendToAll(barrierPackage);
-                while (pair.second < pair.first - 1) {
-//                    logger.fatal("pair1 {} {} {}", name, pair.first, pair.second);
+                while (pair.second != pair.first) {
                     pair.wait();
                 }
-//                logger.fatal("pair2 {} {} {}", name, pair.first, pair.second);
                 if (pair.first != pair.second) {
-//                    logger.fatal("pair3 {} {} {}", name, pair.first, pair.second);
                     pair.wait(100);
                 }
             } catch (InterruptedException e) {
@@ -177,12 +173,20 @@ public class Caesar {
         public void run() {
             try {
                 switch (msg.getType()) {
-                    case Propose:
-                        proposer.onPropose((Propose) msg, sender);
+                    case FastPropose:
+                        proposer.onFastPropose((FastPropose) msg, sender);
                         break;
 
-                    case ProposeReply:
-                        proposer.onProposeReply((ProposeReply) msg, sender);
+                    case FastProposeReply:
+                        proposer.onFastProposeReply((FastProposeReply) msg, sender);
+                        break;
+
+                    case SlowPropose:
+                        proposer.onSlowPropose((SlowPropose) msg, sender);
+                        break;
+
+                    case SlowProposeReply:
+                        proposer.onSlowProposeReply((SlowProposeReply) msg, sender);
                         break;
 
                     case Retry:

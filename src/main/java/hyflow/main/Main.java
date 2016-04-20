@@ -7,17 +7,11 @@ import hyflow.caesar.replica.Replica;
 import hyflow.common.Configuration;
 import hyflow.common.ProcessDescriptor;
 import org.apache.commons.cli.*;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
-import java.util.concurrent.ForkJoinPool;
 
 /**
  * Created by balajiarun on 3/6/16.
  */
 public class Main {
-
-    private static Logger logger = LogManager.getLogger(Main.class);
 
     public static Options buildOptions() {
         Option helpOpt = new Option("h", "help", false, "print this message");
@@ -94,7 +88,7 @@ public class Main {
             String benchFile = line.getOptionValue("bc");
             String propFile = line.getOptionValue("p");
 
-            logger.fatal("Pool Size " + ForkJoinPool.getCommonPoolParallelism());
+            System.setProperty("id", String.valueOf(localId));
 
             Configuration config = new Configuration(propFile);
 

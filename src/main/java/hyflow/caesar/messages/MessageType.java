@@ -4,10 +4,15 @@ package hyflow.caesar.messages;
  * Represents message type.
  */
 public enum MessageType {
-    Propose,
-    ProposeReply,
+    FastPropose,
+    FastProposeReply,
+
+    SlowPropose,
+    SlowProposeReply,
+
     Retry,
     RetryReply,
+
     Stable,
 
     Alive,

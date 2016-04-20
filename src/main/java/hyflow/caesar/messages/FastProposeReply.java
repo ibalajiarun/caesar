@@ -12,14 +12,14 @@ import java.util.TreeSet;
 /**
  * Created by balajiarun on 3/12/16.
  */
-public final class ProposeReply extends Message {
+public final class FastProposeReply extends Message {
 
     private final RequestId requestId;
     private final Status status;
     private final Set<RequestId> pred;
     private final long position;
 
-    public ProposeReply(int view, Request request, Status status) {
+    public FastProposeReply(int view, Request request, Status status) {
         super(view);
         this.requestId = request.getId();
         this.status = status;
@@ -27,7 +27,7 @@ public final class ProposeReply extends Message {
         this.position = request.getPosition();
     }
 
-    public ProposeReply(DataInputStream input) throws IOException {
+    public FastProposeReply(DataInputStream input) throws IOException {
         super(input);
         requestId = new RequestId(input);
         status = Status.values()[input.readUnsignedByte()];
@@ -58,7 +58,7 @@ public final class ProposeReply extends Message {
 
     @Override
     public MessageType getType() {
-        return MessageType.ProposeReply;
+        return MessageType.FastProposeReply;
     }
 
     @Override
@@ -80,7 +80,7 @@ public final class ProposeReply extends Message {
 
     @Override
     public String toString() {
-        return "ProposeReply{" +
+        return "FastProposeReply{" +
                 "requestId=" + requestId +
                 ", status=" + status +
                 ", pred=" + pred +

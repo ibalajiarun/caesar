@@ -17,9 +17,9 @@ import static org.junit.Assert.*;
 /**
  * Created by balajiarun on 3/14/16.
  */
-public class ProposeReplyTest extends AbstractMessageTestCase<ProposeReply> {
+public class ProposeReplyTest extends AbstractMessageTestCase<FastProposeReply> {
 
-    private ProposeReply reply;
+    private FastProposeReply reply;
 
     private Request request;
     private RequestId requestId;
@@ -39,7 +39,7 @@ public class ProposeReplyTest extends AbstractMessageTestCase<ProposeReply> {
     @Test
     public void shouldInitializeFields() {
         request.setPred(pred);
-        reply = new ProposeReply(0, request, ProposeReply.Status.ACK);
+        reply = new FastProposeReply(0, request, FastProposeReply.Status.ACK);
         assertEquals(requestId, reply.getRequestId());
         assertThat(pred, is(reply.getPred()));
     }
@@ -47,7 +47,7 @@ public class ProposeReplyTest extends AbstractMessageTestCase<ProposeReply> {
     @Test
     public void testSerializationACK() throws IOException, ClassNotFoundException {
         request.setPred(pred);
-        reply = new ProposeReply(0, request, ProposeReply.Status.ACK);
+        reply = new FastProposeReply(0, request, FastProposeReply.Status.ACK);
 
         verifySerialization(reply);
 
@@ -58,9 +58,9 @@ public class ProposeReplyTest extends AbstractMessageTestCase<ProposeReply> {
         DataInputStream dis = new DataInputStream(bis);
 
         MessageType type = MessageType.values()[dis.readByte()];
-        ProposeReply deserializedReply = new ProposeReply(dis);
+        FastProposeReply deserializedReply = new FastProposeReply(dis);
 
-        assertEquals(MessageType.ProposeReply, type);
+        assertEquals(MessageType.FastProposeReply, type);
         compare(reply, deserializedReply);
         assertThat(deserializedReply.getPred(), is(pred));
         assertEquals(0, deserializedReply.position());
@@ -69,7 +69,7 @@ public class ProposeReplyTest extends AbstractMessageTestCase<ProposeReply> {
 
     @Test
     public void testSerializationNACK() throws IOException, ClassNotFoundException {
-        reply = new ProposeReply(0, request, ProposeReply.Status.NACK);
+        reply = new FastProposeReply(0, request, FastProposeReply.Status.NACK);
 
         verifySerialization(reply);
 
@@ -80,9 +80,9 @@ public class ProposeReplyTest extends AbstractMessageTestCase<ProposeReply> {
         DataInputStream dis = new DataInputStream(bis);
 
         MessageType type = MessageType.values()[dis.readByte()];
-        ProposeReply deserializedReply = new ProposeReply(dis);
+        FastProposeReply deserializedReply = new FastProposeReply(dis);
 
-        assertEquals(MessageType.ProposeReply, type);
+        assertEquals(MessageType.FastProposeReply, type);
         compare(reply, deserializedReply);
         assertTrue(deserializedReply.getPred().isEmpty());
         assertEquals(0, deserializedReply.position());
@@ -91,13 +91,13 @@ public class ProposeReplyTest extends AbstractMessageTestCase<ProposeReply> {
 
     @Test
     public void shouldReturnCorrectMessageType() {
-        reply = new ProposeReply(0, request, ProposeReply.Status.ACK);
-        assertEquals(MessageType.ProposeReply, reply.getType());
+        reply = new FastProposeReply(0, request, FastProposeReply.Status.ACK);
+        assertEquals(MessageType.FastProposeReply, reply.getType());
     }
 
 
     @Override
-    protected void compare(ProposeReply first, ProposeReply second) {
+    protected void compare(FastProposeReply first, FastProposeReply second) {
         assertEquals(first.getRequestId(), second.getRequestId());
         assertEquals(first.getStatus(), second.getStatus());
     }
