@@ -63,7 +63,7 @@ public final class ReaderAndWriter implements ReadWriteHandler {
     }
 
     /**
-     * This method is called from selector thread to notifyForReq that there are new
+     * This method is called from selector thread to notifyClient that there are new
      * data available in socket channel.
      * @throws InterruptedException
      */
@@ -84,7 +84,7 @@ public final class ReaderAndWriter implements ReadWriteHandler {
                     return;
                 }
 
-                // if the whole packet was read, then notifyForReq packet handler;
+                // if the whole packet was read, then notifyClient packet handler;
                 // calling return instead of break cause that the OP_READ flag
                 // is not set ; to start reading again, new packet handler has
                 // to be set
@@ -108,7 +108,7 @@ public final class ReaderAndWriter implements ReadWriteHandler {
     }
 
     /**
-     * This method is called from selector thread to notifyForReq that there is free
+     * This method is called from selector thread to notifyClient that there is free
      * space in system send buffer, and it is possible to send new packet of
      * data.
      */
