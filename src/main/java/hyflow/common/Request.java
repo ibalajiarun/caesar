@@ -2,7 +2,7 @@ package hyflow.common;
 
 import java.util.Arrays;
 import java.util.Set;
-import java.util.TreeSet;
+import java.util.concurrent.ConcurrentSkipListSet;
 
 /**
  * Request from the user which needs to be inserted in state machine. It can 
@@ -28,7 +28,7 @@ public final class Request implements Comparable<Request> {
         this.objectIds = objectIds;
         this.payload = payload;
         this.status = RequestStatus.Waiting;
-        this.pred = new TreeSet<>();
+        this.pred = new ConcurrentSkipListSet<>();
         this.view = 0;
     }
 
@@ -38,7 +38,7 @@ public final class Request implements Comparable<Request> {
         this.objectIds = objectIds;
         this.payload = payload;
         this.position = position;
-        this.pred = pred == null ? new TreeSet<>() : pred;
+        this.pred = pred == null ? new ConcurrentSkipListSet<>() : pred;
         this.status = status;
         this.view = 0;
     }

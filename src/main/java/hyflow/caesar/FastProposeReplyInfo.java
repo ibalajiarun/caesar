@@ -7,7 +7,8 @@ import hyflow.common.RequestId;
 
 import java.util.Arrays;
 import java.util.SortedSet;
-import java.util.TreeSet;
+import java.util.concurrent.ConcurrentSkipListSet;
+import java.util.concurrent.ScheduledFuture;
 
 /**
  * Created by balajiarun on 3/14/16.
@@ -27,12 +28,14 @@ public class FastProposeReplyInfo {
     private int count;
     private boolean done;
 
+    private ScheduledFuture<?> slowProposeTimer;
+
     public FastProposeReplyInfo(Request request, int numReplicas) {
         this.request = request;
 
         replies = new FastProposeReply[numReplicas];
 
-        predSet = new TreeSet<>();
+        predSet = new ConcurrentSkipListSet<>();
         position = request.getPosition();
         nack = false;
 
@@ -82,6 +85,14 @@ public class FastProposeReplyInfo {
 
     public long getMaxPosition() {
         return position;
+    }
+
+    public ScheduledFuture<?> getSlowProposeFuture() {
+        return slowProposeTimer;
+    }
+
+    public void setSlowProposeFuture(ScheduledFuture<?> slowProposeTimer) {
+        this.slowProposeTimer = slowProposeTimer;
     }
 
     @Override

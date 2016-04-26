@@ -6,7 +6,7 @@ import hyflow.common.Request;
 import hyflow.common.RequestId;
 
 import java.util.SortedSet;
-import java.util.TreeSet;
+import java.util.concurrent.ConcurrentSkipListSet;
 
 /**
  * Created by balajiarun on 3/14/16.
@@ -30,7 +30,7 @@ public class SlowProposeReplyInfo {
 
         replies = new SlowProposeReply[numReplicas];
 
-        predSet = new TreeSet<>();
+        predSet = new ConcurrentSkipListSet<>();
         position = request.getPosition();
         nack = false;
 

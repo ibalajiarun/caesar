@@ -15,6 +15,9 @@ public enum MessageType {
 
     Stable,
 
+    Recovery,
+    RecoveryReply,
+
     Alive,
 
     Barrier,

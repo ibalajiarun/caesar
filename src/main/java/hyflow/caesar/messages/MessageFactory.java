@@ -82,8 +82,20 @@ public final class MessageFactory {
             case Stable:
                 message = new Stable(input);
                 break;
+
+            case Recovery:
+                message = new Recovery(input);
+                break;
+            case RecoveryReply:
+                message = new RecoveryReply(input);
+                break;
+
             case Barrier:
                 message = new BarrierPackage(input);
+                break;
+
+            case Alive:
+                message = new Alive(input);
                 break;
 
             default:

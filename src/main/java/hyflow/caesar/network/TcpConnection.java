@@ -141,7 +141,7 @@ public class TcpConnection {
         this.output = output;
         connected = true;
 
-        // if main thread wait for this connection notifyForReq it
+        // if main thread wait for this connection notifyClient it
         notifyAll();
     }
 

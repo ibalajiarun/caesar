@@ -22,18 +22,16 @@ public class Bank extends AbstractService {
     private static final Logger logger = LogManager.getLogger(Bank.class);
     private final int numAccounts;
     private final SharedObjectRegistry registry;
-    private final String requestType;
 
     public Bank(String fileName) throws IOException {
         super(fileName);
 
         numAccounts = Integer.parseInt(configuration.getProperty("numAccounts", "500"));
-        requestType = configuration.getProperty("requestType", "NORMAL");
 
         this.registry = new SharedObjectRegistry(numAccounts);
 
         for (int id = 0; id < this.numAccounts; id++) {
-            Account account = new Account(INITIAL_BALANCE, id);
+            Account account = new Account(id, INITIAL_BALANCE);
             this.registry.registerObjects(id, account);
         }
     }
@@ -60,7 +58,8 @@ public class Bank extends AbstractService {
         return true;
     }
 
-    public Request createRequest(RequestId rId, int clientCount, boolean read) {
+    @Override
+    public Request createRequest(RequestId rId, boolean read, int requestType, int clientCount) {
         final int PAYLOAD_SIZE = 10;
         final Random random = new Random();
 
@@ -79,38 +78,42 @@ public class Bank extends AbstractService {
         }
 
 
-        if (requestType.equals("TWO_OBJECTS")) {
+        switch (requestType) {
+            case 0:
 
-            src = 0;
-            objectIds[0] = src;
-            dst = 1;
-            objectIds[1] = dst;
+                src = 0;
+                objectIds[0] = src;
+                dst = 1;
+                objectIds[1] = dst;
+                break;
 
-        } else if (requestType.equals("PARTITIONED_TWO_OBJECTS")) {
+            case 1:
 
-            src = rId.getClientId();
-            objectIds[0] = src;
-            dst = numAccounts - rId.getClientId() - 1;
-            objectIds[1] = dst;
+                src = rId.getClientId();
+                objectIds[0] = src;
+                dst = numAccounts - rId.getClientId() - 1;
+                objectIds[1] = dst;
+                break;
 
-        } else if (requestType.equals("PARTITIONED")) {
+            case 2:
 
-            int access = numAccounts / clientCount;
-            src = random.nextInt(access) + (access * rId.getClientId());
-            objectIds[0] = src;
-            do {
-                dst = random.nextInt(access) + (access * rId.getClientId());
-            } while (src > dst);
-            objectIds[1] = dst;
+                int access = numAccounts / clientCount;
+                src = random.nextInt(access) + (access * rId.getClientId());
+                objectIds[0] = src;
+                do {
+                    dst = random.nextInt(access) + (access * rId.getClientId());
+                } while (src > dst);
+                objectIds[1] = dst;
+                break;
 
-        } else {
+            default:
 
-            src = random.nextInt(this.numAccounts);
-            objectIds[0] = src;
-            do {
-                dst = random.nextInt(this.numAccounts); //random.nextInt(max - min) + min;
-            } while (src >= dst);
-            objectIds[1] = dst;
+                src = random.nextInt(this.numAccounts);
+                objectIds[0] = src;
+                do {
+                    dst = random.nextInt(this.numAccounts); //random.nextInt(max - min) + min;
+                } while (src >= dst);
+                objectIds[1] = dst;
 
         }
 

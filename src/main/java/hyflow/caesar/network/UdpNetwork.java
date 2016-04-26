@@ -103,7 +103,17 @@ public class UdpNetwork extends Network {
 
     @Override
     public boolean send(byte[] message, int destination) {
-        throw new UnsupportedOperationException();
+        byte[] data = new byte[message.length + 4];
+        ByteBuffer.wrap(data).putInt(p.localId).put(message);
+        DatagramPacket dp = new DatagramPacket(data, data.length);
+
+        dp.setSocketAddress(addresses[destination]);
+        try {
+            datagramSocket.send(dp);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        return true;
     }
 
     /**

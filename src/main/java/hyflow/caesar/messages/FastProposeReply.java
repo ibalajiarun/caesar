@@ -1,13 +1,12 @@
 package hyflow.caesar.messages;
 
-import hyflow.common.Request;
 import hyflow.common.RequestId;
 
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Set;
-import java.util.TreeSet;
+import java.util.concurrent.ConcurrentSkipListSet;
 
 /**
  * Created by balajiarun on 3/12/16.
@@ -19,12 +18,12 @@ public final class FastProposeReply extends Message {
     private final Set<RequestId> pred;
     private final long position;
 
-    public FastProposeReply(int view, Request request, Status status) {
+    public FastProposeReply(int view, RequestId rId, Status status, Set<RequestId> pred, long position) {
         super(view);
-        this.requestId = request.getId();
+        this.requestId = rId;
         this.status = status;
-        this.pred = request.getPred();
-        this.position = request.getPosition();
+        this.pred = pred;
+        this.position = position;
     }
 
     public FastProposeReply(DataInputStream input) throws IOException {
@@ -33,7 +32,7 @@ public final class FastProposeReply extends Message {
         status = Status.values()[input.readUnsignedByte()];
 
         int length = input.readInt();
-        pred = new TreeSet<>();
+        pred = new ConcurrentSkipListSet<>();
         while (--length >= 0)
             pred.add(new RequestId(input));
 

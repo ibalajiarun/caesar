@@ -82,7 +82,7 @@
 //        Request msgRequest = msg.getRequest();
 //        logger.debug("onPropose " + msgRequest);
 //
-//        RequestInfo newReqInfo = new RequestInfo(msg.getView(), RequestStatus.PrePending);
+//        RequestInfo newReqInfo = new RequestInfo(msg.getView(), RequestStatus.PreFastPending);
 //
 //        RequestInfo reqInfo = ballots.putIfAbsent(msgRequest.getId(), newReqInfo);
 //        if (reqInfo == null)
@@ -92,16 +92,16 @@
 //
 //            if (newReqInfo != reqInfo) {
 //                if (reqInfo.getView() > msg.getView() ||
-//                        reqInfo.getStatusOrdinal() > RequestStatus.PrePending.ordinal())
+//                        reqInfo.getStatusOrdinal() > RequestStatus.PreFastPending.ordinal())
 //                    return;
 //            }
 //
 //            proposeRunnables.putIfAbsent(msgRequest.getId(), new ConcurrentLinkedQueue<>());
 //
-//            msgRequest.setStatus(RequestStatus.Pending);
-//            Request request = conflictDetector.updateRequest(msgRequest, RequestStatus.Pending);
+//            msgRequest.setStatus(RequestStatus.FastPending);
+//            Request request = conflictDetector.updateRequest(msgRequest, RequestStatus.FastPending);
 //
-//            reqInfo.setStatus(RequestStatus.Pending);
+//            reqInfo.setStatus(RequestStatus.FastPending);
 //
 //            SortedSet<Request> waitReqs = new TreeSet<>();
 //            boolean shouldReject = conflictDetector.computeWaitSetOrReject(request, waitReqs);
@@ -146,7 +146,7 @@
 //                    assert prQ != null : "FastPropose Runnable was not created for " + req.getId();
 //                    synchronized (prQ) {
 //                        if (req.getStatus() != RequestStatus.Accepted && req.getStatus() != RequestStatus.Stable) {
-//                            prQ.add(new OnProposeRunner(request, view, sender, waitReqs, index));
+//                            prQ.add(new OnFastProposeRunner(request, view, sender, waitReqs, index));
 //                        } else {
 //                            continue;
 //                        }
@@ -245,7 +245,7 @@
 //            msgRequest.setStatus(RequestStatus.Stable);
 //            assert msgRequest.getStatus() == RequestStatus.Stable : "Request is not stable";
 //
-//            Request request = conflictDetector.updateRequest(msgRequest, RequestStatus.Pending);
+//            Request request = conflictDetector.updateRequest(msgRequest, RequestStatus.FastPending);
 //            localInfo.setStatus(RequestStatus.Stable);
 //            assert request.getStatus() == RequestStatus.Stable : "Req is not stable " + request;
 //
@@ -344,7 +344,7 @@
 //                    return;
 //            }
 //
-//            Request request = conflictDetector.updateRequest(msgRequest, RequestStatus.Pending);
+//            Request request = conflictDetector.updateRequest(msgRequest, RequestStatus.FastPending);
 //
 //            SortedSet<RequestId> predSet = conflictDetector.computeNewPredFor(request, request.getPosition());
 //
@@ -401,7 +401,7 @@
 ////        }
 //    }
 //
-//    private class OnProposeRunner implements Runnable {
+//    private class OnFastProposeRunner implements Runnable {
 //
 //        private final Request request;
 //        private final int view;
@@ -409,7 +409,7 @@
 //        private final SortedSet<Request> waitReqs;
 //        private final int index;
 //
-//        public OnProposeRunner(Request request, int view, int sender, SortedSet<Request> waitReqs, int index) {
+//        public OnFastProposeRunner(Request request, int view, int sender, SortedSet<Request> waitReqs, int index) {
 //            this.request = request;
 //            this.view = view;
 //            this.sender = sender;

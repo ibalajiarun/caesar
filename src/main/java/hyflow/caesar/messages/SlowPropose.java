@@ -8,7 +8,7 @@ import java.io.DataInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Set;
-import java.util.TreeSet;
+import java.util.concurrent.ConcurrentSkipListSet;
 
 public final class SlowPropose extends Message {
     private static final long serialVersionUID = 1L;
@@ -41,7 +41,7 @@ public final class SlowPropose extends Message {
         }
 
         int predLen = input.readInt();
-        pred = new TreeSet<>();
+        pred = new ConcurrentSkipListSet<>();
         while (--predLen >= 0)
             pred.add(new RequestId(input));
 
@@ -67,8 +67,11 @@ public final class SlowPropose extends Message {
                 8 + 4 + payload.length;
     }
 
+    @Override
     public String toString() {
-        return "Retry(" + super.toString() + ")";
+        return "SlowPropose{" +
+                "request=" + request +
+                '}';
     }
 
     protected void write(ByteBuffer bb) {

@@ -8,8 +8,8 @@ import org.apache.logging.log4j.Logger;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.SortedSet;
-import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.stream.Collectors;
@@ -19,7 +19,7 @@ import java.util.stream.Collectors;
  */
 public class ConflictDetector {
 
-    private final Map<RequestId, Request> requestMap;
+    private final ConcurrentHashMap<RequestId, Request> requestMap;
     private final SortedSet<Request>[] objReqMap;
     private final Logger logger = LogManager.getLogger(ConflictDetector.class);
 
@@ -77,7 +77,7 @@ public class ConflictDetector {
                 return logger.exit(true); // Reject at once
             }
 
-            List<Request> pReqs = statusMap.get(RequestStatus.Pending);
+            List<Request> pReqs = statusMap.get(RequestStatus.FastPending);
             if (pReqs != null)
                 waitSet.addAll(pReqs);
 
@@ -89,21 +89,32 @@ public class ConflictDetector {
         return logger.exit(false); // Don't Reject yet.
     }
 
-    public SortedSet<RequestId> computeNewPredFor(Request request, long position) {
+    public SortedSet<RequestId> computeNewPredFor(Request request, long position, Set<RequestId> whiteList) {
         logger.entry(request, position);
 
-        SortedSet<RequestId> predSet = new TreeSet<>();
+        SortedSet<RequestId> predSet = new ConcurrentSkipListSet<>();
         int[] objectIds = request.getObjectIds();
+
+
         for (int oId : objectIds) {
             predSet.addAll(
                     objReqMap[oId].parallelStream()
-                            .filter(r -> r.getPosition() < position)
+                            .filter(r -> {
+                                if (whiteList != null) {
+                                    return whiteList.contains(r.getId()) || (r.getPosition() < position
+                                            && (r.getStatus() == RequestStatus.SlowPending
+                                            || r.getStatus() == RequestStatus.Accepted
+                                            || r.getStatus() == RequestStatus.Stable));
+                                } else {
+                                    return r.getPosition() < position;
+                                }
+                            })
                             .map(Request::getId)
-                            .collect(Collectors.toList())
+                            .collect(Collectors.toSet())
             );
         }
 
+
         return logger.exit(predSet);
     }
-
 }

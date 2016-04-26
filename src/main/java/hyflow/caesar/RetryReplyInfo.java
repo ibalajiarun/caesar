@@ -7,7 +7,7 @@ import hyflow.common.RequestId;
 import hyflow.common.RequestStatus;
 
 import java.util.SortedSet;
-import java.util.TreeSet;
+import java.util.concurrent.ConcurrentSkipListSet;
 
 /**
  * Created by balajiarun on 3/15/16.
@@ -29,7 +29,7 @@ public class RetryReplyInfo {
 
         replies = new RetryReply[numReplicas];
 
-        predSet = new TreeSet<>();
+        predSet = new ConcurrentSkipListSet<>();
         position = request.getPosition();
 
         count = 0;

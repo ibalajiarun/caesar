@@ -9,7 +9,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Set;
-import java.util.TreeSet;
+import java.util.concurrent.ConcurrentSkipListSet;
 
 public final class Stable extends Message {
     private static final long serialVersionUID = 1L;
@@ -42,7 +42,7 @@ public final class Stable extends Message {
         }
 
         int pLen = input.readInt();
-        pred = new TreeSet<>();
+        pred = new ConcurrentSkipListSet<>();
         while (--pLen >= 0)
             pred.add(new RequestId(input));
 

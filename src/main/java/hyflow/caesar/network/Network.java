@@ -3,10 +3,11 @@ package hyflow.caesar.network;
 import hyflow.caesar.messages.Message;
 import hyflow.caesar.messages.MessageType;
 import hyflow.common.ProcessDescriptor;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.logging.Logger;
 
 /**
  * This class provides methods to communicate with other processes (replicas).
@@ -22,7 +23,7 @@ public abstract class Network {
      * The list is shared between networks
      */
     protected static final Map<MessageType, CopyOnWriteArrayList<MessageHandler>> msgListeners;
-    private final static Logger logger = Logger.getLogger(Network.class.getCanonicalName());
+    private final static Logger logger = LogManager.getLogger(Network.class);
 
     static {
         msgListeners = Collections.synchronizedMap(
@@ -133,7 +134,7 @@ public abstract class Network {
         boolean handled = broadcastToListeners(message.getType(), message, sender);
         handled |= broadcastToListeners(MessageType.ANY, message, sender);
         if (!handled) {
-            logger.warning("Unhandled message: " + message);
+            logger.warn("Unhandled message: " + message);
         }
     }
 

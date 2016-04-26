@@ -46,7 +46,7 @@ public class Replica {
 //            deliverDispatcher.execute(() -> {
 //                service.executeRequest(request);
                 caesar.onDelivery(request, deliverQ);
-                client.notifyForReq(request);
+            client.notifyClient(request);
 //            });
         }
     }

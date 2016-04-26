@@ -7,6 +7,8 @@ import hyflow.common.RequestStatus;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Set;
+import java.util.TreeSet;
 
 public final class FastPropose extends Message {
     private static final long serialVersionUID = 1L;
@@ -17,7 +19,10 @@ public final class FastPropose extends Message {
     private final long position;
     private final byte[] payload;
 
-    public FastPropose(int view, Request request) {
+    private final boolean valid;
+    private final Set<RequestId> whiteList;
+
+    public FastPropose(int view, Request request, Set<RequestId> whiteList) {
         super(view);
         this.request = request;
         this.requestId = request.getId();
@@ -25,7 +30,14 @@ public final class FastPropose extends Message {
         this.position = request.getPosition();
         this.payload = request.getPayload();
 
-        this.request.setStatus(RequestStatus.Pending);
+        this.whiteList = whiteList;
+        if (whiteList != null) {
+            this.valid = true;
+        } else {
+            this.valid = false;
+        }
+
+        this.request.setStatus(RequestStatus.FastPending);
     }
 
     public FastPropose(DataInputStream input) throws IOException {
@@ -42,7 +54,18 @@ public final class FastPropose extends Message {
         payload = new byte[input.readInt()];
         input.readFully(payload);
 
-        request = new Request(requestId, objectIds, payload, position, null, RequestStatus.Pending);
+        valid = input.readUnsignedByte() != 0;
+        if (valid) {
+            int wLength = input.readInt();
+
+            whiteList = new TreeSet<>();
+            while (--wLength >= 0)
+                whiteList.add(new RequestId(input));
+        } else {
+            whiteList = null;
+        }
+
+        request = new Request(requestId, objectIds, payload, position, null, RequestStatus.FastPending);
     }
 
     public MessageType getType() {
@@ -53,16 +76,18 @@ public final class FastPropose extends Message {
         return request;
     }
 
-    public int byteSize() {
-        return super.byteSize() + requestId.byteSize() + 4 +
-                (4 * objectIds.length) + 8 + 4 + payload.length;
+    public Set<RequestId> getWhiteList() {
+        return whiteList;
     }
 
-    @Override
-    public String toString() {
-        return "FastPropose{" +
-                "request=" + request +
-                '}';
+    public int byteSize() {
+        if (valid)
+            return super.byteSize() + requestId.byteSize() + 4 + (4 * objectIds.length)
+                    + 8 + 4 + payload.length + 1 + 4 + (requestId.byteSize() * whiteList.size());
+        else
+            return super.byteSize() + requestId.byteSize() + 4 +
+                    (4 * objectIds.length) + 8 + 4 + payload.length + 1;
+
     }
 
     protected void write(ByteBuffer bb) {
@@ -75,5 +100,23 @@ public final class FastPropose extends Message {
         bb.putLong(position);
         bb.putInt(payload.length);
         bb.put(payload);
+
+        if (valid) {
+            bb.put((byte) 1);
+            bb.putInt(whiteList.size());
+            for (RequestId rId : whiteList) {
+                rId.writeTo(bb);
+            }
+        } else {
+            bb.put((byte) 0);
+        }
+    }
+
+    @Override
+    public String toString() {
+        return "FastPropose{" +
+                "request=" + request +
+                ", whiteList=" + whiteList +
+                '}';
     }
 }

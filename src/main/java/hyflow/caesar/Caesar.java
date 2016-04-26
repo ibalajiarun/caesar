@@ -16,14 +16,17 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Queue;
 
-public class Caesar {
+public final class Caesar implements FailureDetector.FailureDetectorListener {
+
     private final static Logger logger = LogManager.getLogger(Caesar.class);
+
     private final TimestampGenerator tsGen;
     private final ThreadDispatcher dispatcher;
     private final UdpNetwork udpNetwork;
     private final Network network;
     private final ProcessDescriptor pd;
     private final int totalObjects;
+    //    private final FailureDetector failureDetector;
     private Proposer proposer;
     private ConflictDetector cDetector;
     private DecideCallback callback;
@@ -49,6 +52,8 @@ public class Caesar {
         }
         logger.info("Network: " + network.getClass().getCanonicalName());
 
+//        failureDetector = new FailureDetector(this, udpNetwork);
+
         this.totalObjects = totalObjects;
 
         this.tsGen = new TimestampGenerator(pd.localId, pd.numReplicas);
@@ -63,17 +68,26 @@ public class Caesar {
         this.callback = callback;
 
         MessageHandler handler = new MessageHandlerImpl();
-        Network.addMessageListener(MessageType.Alive, handler);
+
         Network.addMessageListener(MessageType.FastPropose, handler);
         Network.addMessageListener(MessageType.FastProposeReply, handler);
+
+        Network.addMessageListener(MessageType.SlowPropose, handler);
+        Network.addMessageListener(MessageType.SlowProposeReply, handler);
+
         Network.addMessageListener(MessageType.Retry, handler);
         Network.addMessageListener(MessageType.RetryReply, handler);
+
         Network.addMessageListener(MessageType.Stable, handler);
+
+        Network.addMessageListener(MessageType.Recovery, handler);
+        Network.addMessageListener(MessageType.RecoveryReply, handler);
 
         Network.addMessageListener(MessageType.Barrier, handler);
 
         udpNetwork.start();
         network.start();
+//        failureDetector.start();
     }
 
     public void deliver(Request request, Queue<Runnable> deliverQ) {
@@ -150,7 +164,12 @@ public class Caesar {
         }
     }
 
-    private class MessageHandlerImpl implements MessageHandler {
+    @Override
+    public void suspect(int nodeId) {
+        dispatcher.submit(() -> proposer.startRecovery(nodeId));
+    }
+
+    private final class MessageHandlerImpl implements MessageHandler {
         public void onMessageReceived(Message msg, int sender) {
             logger.trace("Msg rcv: " + msg);
             MessageEvent event = new MessageEvent(msg, sender);
@@ -201,8 +220,16 @@ public class Caesar {
                         proposer.onStable((Stable) msg, sender);
                         break;
 
+                    case Recovery:
+                        proposer.onRecovery((Recovery) msg, sender);
+                        break;
+
+                    case RecoveryReply:
+                        proposer.onRecoveryReply((RecoveryReply) msg, sender);
+                        break;
+
                     case Alive:
-                        logger.warn("Alive message received");
+                        logger.trace("Alive message received");
                         //TODO: Implement Handler
                         break;
 

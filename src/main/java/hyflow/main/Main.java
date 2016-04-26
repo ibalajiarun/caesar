@@ -1,12 +1,13 @@
 package hyflow.main;
 
 import hyflow.benchmark.AbstractService;
-import hyflow.benchmark.bank.Bank;
 import hyflow.caesar.Caesar;
 import hyflow.caesar.replica.Replica;
 import hyflow.common.Configuration;
 import hyflow.common.ProcessDescriptor;
 import org.apache.commons.cli.*;
+
+import java.lang.reflect.Constructor;
 
 /**
  * Created by balajiarun on 3/6/16.
@@ -20,7 +21,7 @@ public class Main {
                 .longOpt("clients")
                 .hasArg()
                 .desc("number of clients")
-                .required()
+//                .required()
                 .build();
 
         Option replicaIdOpt = Option.builder("id")
@@ -34,7 +35,7 @@ public class Main {
                 .longOpt("test-time")
                 .hasArg()
                 .desc("test time")
-                .required()
+//                .required()
                 .build();
 
         Option benchmarkOpt = Option.builder("b")
@@ -79,12 +80,13 @@ public class Main {
 
         CommandLine line;
         try {
-            line = new DefaultParser().parse(options, args);
+            line = new DefaultParser().parse(options, args, false);
 
             int localId = Integer.parseInt(line.getOptionValue("id"));
-            int numClients = Integer.parseInt(line.getOptionValue("c"));
-            int roundTime = Integer.parseInt(line.getOptionValue("t"));
+//            int numClients = Integer.parseInt(line.getOptionValue("c"));
+//            int roundTime = Integer.parseInt(line.getOptionValue("t"));
 
+            String bench = line.getOptionValue("b");
             String benchFile = line.getOptionValue("bc");
             String propFile = line.getOptionValue("p");
 
@@ -93,11 +95,15 @@ public class Main {
             Configuration config = new Configuration(propFile);
 
             ProcessDescriptor.initialize(config, localId);
-            AbstractService service = new Bank(benchFile);
+
+            Class<?> benchClass = Class.forName(bench);
+            Constructor<?> constructor = benchClass.getConstructor(String.class);
+            AbstractService service = (AbstractService) constructor.newInstance(benchFile);
+
             Caesar caesar = new Caesar(service.getTotalObjects());
             Replica replica = new Replica(service, caesar);
 
-            ClientManager client = new ClientManager(numClients, localId, service, replica, caesar);
+            ClientManager client = new ClientManager(localId, service, replica, caesar);
 
             replica.start(client);
 
@@ -107,12 +113,9 @@ public class Main {
             caesar.enterBarrier("start", ProcessDescriptor.getInstance().numReplicas);
             System.out.println("Started");
 
-            client.collectStats(roundTime);
-
-            System.in.read();
+            client.run();
 
             System.exit(0);
-
 
         } catch (Exception e) {
             System.out.println(e.getMessage());

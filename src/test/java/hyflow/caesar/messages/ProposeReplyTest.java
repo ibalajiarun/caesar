@@ -9,7 +9,7 @@ import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.util.Set;
-import java.util.TreeSet;
+import java.util.concurrent.ConcurrentSkipListSet;
 
 import static org.hamcrest.core.Is.is;
 import static org.junit.Assert.*;
@@ -28,7 +28,7 @@ public class ProposeReplyTest extends AbstractMessageTestCase<FastProposeReply> 
     @Before
     public void setUp() {
         requestId = new RequestId(0, 100);
-        pred = new TreeSet<>();
+        pred = new ConcurrentSkipListSet<>();
         pred.add(new RequestId(0, 200));
         pred.add(new RequestId(0, 201));
         pred.add(new RequestId(0, 202));
@@ -39,7 +39,7 @@ public class ProposeReplyTest extends AbstractMessageTestCase<FastProposeReply> 
     @Test
     public void shouldInitializeFields() {
         request.setPred(pred);
-        reply = new FastProposeReply(0, request, FastProposeReply.Status.ACK);
+        reply = new FastProposeReply(0, requestId, FastProposeReply.Status.ACK, pred, 10);
         assertEquals(requestId, reply.getRequestId());
         assertThat(pred, is(reply.getPred()));
     }
@@ -47,7 +47,7 @@ public class ProposeReplyTest extends AbstractMessageTestCase<FastProposeReply> 
     @Test
     public void testSerializationACK() throws IOException, ClassNotFoundException {
         request.setPred(pred);
-        reply = new FastProposeReply(0, request, FastProposeReply.Status.ACK);
+        reply = new FastProposeReply(0, requestId, FastProposeReply.Status.ACK, pred, 10);
 
         verifySerialization(reply);
 
@@ -63,13 +63,13 @@ public class ProposeReplyTest extends AbstractMessageTestCase<FastProposeReply> 
         assertEquals(MessageType.FastProposeReply, type);
         compare(reply, deserializedReply);
         assertThat(deserializedReply.getPred(), is(pred));
-        assertEquals(0, deserializedReply.position());
+        assertEquals(10, deserializedReply.position());
         assertEquals(0, dis.available());
     }
 
     @Test
     public void testSerializationNACK() throws IOException, ClassNotFoundException {
-        reply = new FastProposeReply(0, request, FastProposeReply.Status.NACK);
+        reply = new FastProposeReply(0, requestId, FastProposeReply.Status.NACK, pred, 11);
 
         verifySerialization(reply);
 
@@ -84,14 +84,14 @@ public class ProposeReplyTest extends AbstractMessageTestCase<FastProposeReply> 
 
         assertEquals(MessageType.FastProposeReply, type);
         compare(reply, deserializedReply);
-        assertTrue(deserializedReply.getPred().isEmpty());
-        assertEquals(0, deserializedReply.position());
+        assertFalse(deserializedReply.getPred().isEmpty());
+        assertEquals(11, deserializedReply.position());
         assertEquals(0, dis.available());
     }
 
     @Test
     public void shouldReturnCorrectMessageType() {
-        reply = new FastProposeReply(0, request, FastProposeReply.Status.ACK);
+        reply = new FastProposeReply(0, requestId, FastProposeReply.Status.ACK, pred, 10);
         assertEquals(MessageType.FastProposeReply, reply.getType());
     }
 

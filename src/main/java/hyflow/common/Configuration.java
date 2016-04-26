@@ -13,7 +13,6 @@ public final class Configuration {
     public static final int UDP_RECEIVE_BUFFER_SIZE = 64 * 1024;
     public static final int UDP_SEND_BUFFER_SIZE = 64 * 1024;
 
-    public static final long CATCHUP_MIN_RESEND_TIMEOUT = 50;
     private final static Logger logger = LogManager.getLogger(Configuration.class);
 
     private final List<PID> processes;

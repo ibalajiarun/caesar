@@ -28,7 +28,7 @@ public class ProposeTest extends AbstractMessageTestCase<FastPropose> {
     public void setUp() {
         request = new Request(rId, oIds, payload);
         request.setPosition(100);
-        propose = new FastPropose(0, request);
+        propose = new FastPropose(0, request, null);
     }
 
     @Test

@@ -15,12 +15,16 @@ public class RequestInfo {
         this.status = status;
     }
 
+    public RequestId getId() {
+        return rId;
+    }
+
     public int getView() {
         return view;
     }
 
-    public void setView(int view) {
-        this.view = view;
+    public void incrementView() {
+        view += 1;
     }
 
     public RequestStatus getStatus() {
@@ -43,4 +47,5 @@ public class RequestInfo {
                 ", status=" + status +
                 '}';
     }
+
 }

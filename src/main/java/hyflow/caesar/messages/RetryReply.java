@@ -6,7 +6,7 @@ import java.io.DataInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Set;
-import java.util.TreeSet;
+import java.util.concurrent.ConcurrentSkipListSet;
 
 /**
  * Created by balajiarun on 3/12/16.
@@ -27,7 +27,7 @@ public final class RetryReply extends Message {
         requestId = new RequestId(input);
 
         int length = input.readInt();
-        pred = new TreeSet<>();
+        pred = new ConcurrentSkipListSet<>();
         while (--length >= 0)
             pred.add(new RequestId(input));
     }
