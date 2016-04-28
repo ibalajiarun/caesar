@@ -49,7 +49,7 @@ public final class SlowPropose extends Message {
         this.payload = new byte[input.readInt()];
         input.readFully(payload);
 
-        request = new Request(requestId, objectIds, payload, position, pred, RequestStatus.SlowPending);
+        request = new Request(requestId, objectIds, payload, position, pred, RequestStatus.SlowPending, view);
     }
 
     public MessageType getType() {
@@ -70,6 +70,7 @@ public final class SlowPropose extends Message {
     @Override
     public String toString() {
         return "SlowPropose{" +
+                super.toString() +
                 "request=" + request +
                 '}';
     }

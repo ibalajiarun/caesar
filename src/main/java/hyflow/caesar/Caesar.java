@@ -26,7 +26,7 @@ public final class Caesar implements FailureDetector.FailureDetectorListener {
     private final Network network;
     private final ProcessDescriptor pd;
     private final int totalObjects;
-    //    private final FailureDetector failureDetector;
+    private final FailureDetector failureDetector;
     private Proposer proposer;
     private ConflictDetector cDetector;
     private DecideCallback callback;
@@ -52,7 +52,7 @@ public final class Caesar implements FailureDetector.FailureDetectorListener {
         }
         logger.info("Network: " + network.getClass().getCanonicalName());
 
-//        failureDetector = new FailureDetector(this, udpNetwork);
+        failureDetector = new FailureDetector(this, udpNetwork);
 
         this.totalObjects = totalObjects;
 
@@ -87,7 +87,7 @@ public final class Caesar implements FailureDetector.FailureDetectorListener {
 
         udpNetwork.start();
         network.start();
-//        failureDetector.start();
+        failureDetector.start();
     }
 
     public void deliver(Request request, Queue<Runnable> deliverQ) {

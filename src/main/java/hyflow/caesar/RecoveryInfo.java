@@ -49,23 +49,36 @@ public class RecoveryInfo {
         maxView = msg.getRequestView() > maxView ? msg.getRequestView() : maxView;
     }
 
-    public RecoveryReply getReplyWithStatus(RequestStatus status) {
+    public RecoveryReply getReplyWithStatus(RequestStatus status, boolean withWhitelist) {
         return Arrays.stream(replies)
-                .filter(msg -> msg.isValid() && msg.getRequestView() == maxView
+                .filter(msg -> msg != null
+                        && msg.isValid()
+                        && msg.hasWhitelist() == withWhitelist
+                        && msg.getRequestView() == maxView
                         && msg.getStatus() == status)
                 .findFirst().orElse(null);
     }
 
     public Set<RecoveryReply> getRecoverySet() {
-        Set<RecoveryReply> recoverySet = Arrays.stream(replies)
-                .filter(msg -> msg.isValid() && msg.getRequestView() == maxView)
-                .collect(Collectors.toSet());
 
-        return recoverySet;
+        return Arrays.stream(replies)
+                .filter(msg -> msg != null && msg.isValid() && msg.getRequestView() == maxView)
+                .collect(Collectors.toSet());
     }
 
     public boolean isClassicQuorum() {
         return (count >= classicQuorum);
     }
 
+    @Override
+    public String toString() {
+        return "RecoveryInfo{" +
+                "request=" + request +
+                ", replies=" + Arrays.toString(replies) +
+                ", classicQuorum=" + classicQuorum +
+                ", count=" + count +
+                ", done=" + done +
+                ", maxView=" + maxView +
+                '}';
+    }
 }

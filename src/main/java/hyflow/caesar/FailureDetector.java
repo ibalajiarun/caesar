@@ -140,7 +140,7 @@ final public class FailureDetector implements Runnable {
 
     public interface FailureDetectorListener {
 
-        public void suspect(int nodeId);
+        void suspect(int nodeId);
 
     }
 

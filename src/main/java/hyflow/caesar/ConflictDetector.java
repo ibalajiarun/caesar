@@ -39,9 +39,6 @@ public class ConflictDetector {
         request = request == null ? newReq : request;
 
         synchronized (request) {
-            if (request.getStatus().ordinal() > newReq.getStatus().ordinal()) {
-                return logger.exit(request);
-            }
 
             if (request != newReq) {
                 request.updateWith(newReq);

@@ -23,6 +23,8 @@ public final class Request implements Comparable<Request> {
     private RequestStatus status;
     private int view;
 
+    private boolean hasWhitelist;
+
     public Request(RequestId requestId, int[] objectIds, byte[] payload) {
         this.requestId = requestId;
         this.objectIds = objectIds;
@@ -33,14 +35,14 @@ public final class Request implements Comparable<Request> {
     }
 
     public Request(RequestId requestId, int[] objectIds, byte[] payload,
-                   long position, Set<RequestId> pred, RequestStatus status) {
+                   long position, Set<RequestId> pred, RequestStatus status, int view) {
         this.requestId = requestId;
         this.objectIds = objectIds;
         this.payload = payload;
         this.position = position;
         this.pred = pred == null ? new ConcurrentSkipListSet<>() : pred;
         this.status = status;
-        this.view = 0;
+        this.view = view;
     }
 
     public synchronized long getPosition() {
@@ -77,6 +79,14 @@ public final class Request implements Comparable<Request> {
 
     public synchronized void setPred(Set<RequestId> pred) {
         this.pred = pred;
+    }
+
+    public boolean hasWhitelist() {
+        return hasWhitelist;
+    }
+
+    public void setHasWhitelist(boolean hasWhitelist) {
+        this.hasWhitelist = hasWhitelist;
     }
 
     public synchronized int getView() {

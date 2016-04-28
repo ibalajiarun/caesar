@@ -41,4 +41,11 @@ public class Recovery extends Message {
     protected void write(ByteBuffer bb) {
         requestId.writeTo(bb);
     }
+
+    @Override
+    public String toString() {
+        return "Recovery{" +
+                "requestId=" + requestId +
+                '}';
+    }
 }

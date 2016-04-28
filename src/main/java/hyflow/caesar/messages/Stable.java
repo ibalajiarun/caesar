@@ -50,7 +50,7 @@ public final class Stable extends Message {
         payload = new byte[input.readInt()];
         input.readFully(payload);
 
-        request = new Request(requestId, objectIds, payload, position, pred, RequestStatus.Stable);
+        request = new Request(requestId, objectIds, payload, position, pred, RequestStatus.Stable, view);
     }
 
     public MessageType getType() {

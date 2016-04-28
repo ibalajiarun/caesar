@@ -36,7 +36,7 @@ public class ClientManager {
     private int lastRequestCount;
     private int barrierCount;
 
-    public ClientManager(int replicaId, AbstractService service, Replica replica, Caesar caesar) throws IOException {
+    ClientManager(int replicaId, AbstractService service, Replica replica, Caesar caesar) throws IOException {
         this.service = service;
         this.replica = replica;
         this.caesar = caesar;
@@ -72,7 +72,7 @@ public class ClientManager {
                 for (ClientThread client : clients) {
                     client.interrupt();
                 }
-                break;
+                continue;
             }
 
             if (args.length != 3) {
@@ -99,18 +99,11 @@ public class ClientManager {
         }
     }
 
-    public void finished() {
+    void finished() {
 
         long duration = System.currentTimeMillis() - startTime;
         System.err.println(String.format("Finished %d %4.2f\n", duration,
                 (double) lastRequestCount / duration));
-
-        caesar.enterBarrier("pause" + barrierCount, numReplicas);
-        caesar.refresh();
-        System.gc();
-        System.gc();
-        caesar.enterBarrier("refresh" + barrierCount, numReplicas);
-        barrierCount++;
 
         finishedLock.release();
     }
@@ -119,6 +112,13 @@ public class ClientManager {
             throws IOException, InterruptedException {
 
         finishedLock.acquire();
+
+        caesar.enterBarrier("pause" + barrierCount, numReplicas);
+        caesar.refresh();
+        System.gc();
+        System.gc();
+        caesar.enterBarrier("refresh" + barrierCount, numReplicas);
+        barrierCount++;
 
         for (int i = clients.size(); i < clientCount; i++) {
             ClientThread client = new ClientThread(idGenerator.next());
@@ -180,14 +180,18 @@ public class ClientManager {
                         replica.submit(request);
 
                     }
+                    Thread.sleep(100);
+                    if (ProcessDescriptor.getInstance().localId == 2) {
+//                        System.exit(0);
+                    }
                     for (Request request : requests) {
                         RequestId requestId = request.getId();
                         synchronized (requestId) {
                             int times = 0;
                             while (request.getStatus() != RequestStatus.Stable) {
-                                requestId.wait(100);
+                                requestId.wait(1000);
                                 times++;
-                                if (times % 5 == 0) {
+                                if (times % 10 == 0) {
                                     logger.fatal("Too long " + request);
                                 }
                             }
@@ -204,7 +208,7 @@ public class ClientManager {
             }
         }
 
-        public void execute(int clientCount, int count, int reqType) throws InterruptedException {
+        void execute(int clientCount, int count, int reqType) throws InterruptedException {
             this.clientCount = clientCount;
             this.reqType = reqType;
             this.sends.put(count);

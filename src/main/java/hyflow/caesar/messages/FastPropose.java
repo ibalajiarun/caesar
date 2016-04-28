@@ -65,7 +65,7 @@ public final class FastPropose extends Message {
             whiteList = null;
         }
 
-        request = new Request(requestId, objectIds, payload, position, null, RequestStatus.FastPending);
+        request = new Request(requestId, objectIds, payload, position, null, RequestStatus.FastPending, view);
     }
 
     public MessageType getType() {

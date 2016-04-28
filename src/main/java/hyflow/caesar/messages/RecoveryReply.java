@@ -22,6 +22,8 @@ public class RecoveryReply extends Message {
     private Set<RequestId> pred;
     private RequestStatus status;
 
+    private boolean hasWhitelist;
+
     public RecoveryReply(int view, RequestId rId, Request request) {
         super(view);
         this.requestId = rId;
@@ -30,13 +32,14 @@ public class RecoveryReply extends Message {
             this.position = request.getPosition();
             this.status = request.getStatus();
             this.pred = request.getPred();
+            this.hasWhitelist = request.hasWhitelist();
             this.valid = true;
         } else {
             this.valid = false;
         }
     }
 
-    public RecoveryReply(DataInputStream input) throws IOException {
+    RecoveryReply(DataInputStream input) throws IOException {
         super(input);
         requestId = new RequestId(input);
         valid = input.readUnsignedByte() != 0;
@@ -49,6 +52,8 @@ public class RecoveryReply extends Message {
             pred = new ConcurrentSkipListSet<>();
             while (--length >= 0)
                 pred.add(new RequestId(input));
+
+            hasWhitelist = input.readUnsignedByte() != 0;
         }
     }
 
@@ -76,6 +81,10 @@ public class RecoveryReply extends Message {
         return valid;
     }
 
+    public boolean hasWhitelist() {
+        return hasWhitelist;
+    }
+
     @Override
     public MessageType getType() {
         return MessageType.RecoveryReply;
@@ -86,8 +95,8 @@ public class RecoveryReply extends Message {
         if (!valid)
             return super.byteSize() + requestId.byteSize() + 1;
         else
-            return super.byteSize() + requestId.byteSize() + 4 + 8 + 1 + 4
-                    + pred.size() * requestId.byteSize();
+            return super.byteSize() + requestId.byteSize() + 1 + 4 + 8 + 1 + 4
+                    + pred.size() * requestId.byteSize() + 1;
     }
 
     @Override
@@ -103,9 +112,24 @@ public class RecoveryReply extends Message {
             for (RequestId rId : pred) {
                 rId.writeTo(bb);
             }
+
+            bb.put((byte) (hasWhitelist ? 1 : 0));
         } else {
             bb.put((byte) 0);
         }
     }
 
+    @Override
+    public String toString() {
+        return "RecoveryReply{" +
+                super.toString() +
+                "requestId=" + requestId +
+                ", valid=" + valid +
+                ", requestView=" + requestView +
+                ", position=" + position +
+                ", pred=" + pred +
+                ", status=" + status +
+                ", hasWhitelist=" + hasWhitelist +
+                '}';
+    }
 }

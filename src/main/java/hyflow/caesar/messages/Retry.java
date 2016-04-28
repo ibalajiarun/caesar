@@ -49,7 +49,7 @@ public final class Retry extends Message {
         this.payload = new byte[input.readInt()];
         input.readFully(payload);
 
-        request = new Request(requestId, objectIds, payload, position, pred, RequestStatus.Accepted);
+        request = new Request(requestId, objectIds, payload, position, pred, RequestStatus.Accepted, view);
     }
 
     public MessageType getType() {

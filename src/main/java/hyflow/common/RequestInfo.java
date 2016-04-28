@@ -23,10 +23,6 @@ public class RequestInfo {
         return view;
     }
 
-    public void incrementView() {
-        view += 1;
-    }
-
     public RequestStatus getStatus() {
         return status;
     }

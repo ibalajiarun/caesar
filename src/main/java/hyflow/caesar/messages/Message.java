@@ -7,7 +7,7 @@ import java.nio.ByteBuffer;
 
 public abstract class Message implements Serializable {
     private static final long serialVersionUID = 1L;
-    private final int view;
+    protected final int view;
     private long sentTime;
 
     protected Message(int view) {
