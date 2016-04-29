@@ -43,11 +43,11 @@ public class Replica {
 
         @Override
         public void deliver(final Request request, final Queue<Runnable> deliverQ) {
-//            deliverDispatcher.execute(() -> {
-//                service.executeRequest(request);
+            deliverDispatcher.execute(() -> {
+                service.executeRequest(request);
                 caesar.onDelivery(request, deliverQ);
-            client.notifyClient(request);
-//            });
+                client.notifyClient(request);
+            });
         }
     }
 

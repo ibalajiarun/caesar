@@ -96,6 +96,7 @@ public class ConflictDetector {
         for (int oId : objectIds) {
             predSet.addAll(
                     objReqMap[oId].parallelStream()
+                            .filter(r -> r.getId() != request.getId())
                             .filter(r -> {
                                 if (whiteList != null) {
                                     return whiteList.contains(r.getId()) || (r.getPosition() < position

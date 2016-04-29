@@ -3,6 +3,7 @@ package hyflow.main;
 import hyflow.benchmark.AbstractService;
 import hyflow.caesar.Caesar;
 import hyflow.caesar.replica.Replica;
+import hyflow.caesar.statistics.RequestStats;
 import hyflow.common.*;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -11,6 +12,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.Map;
+import java.util.Random;
 import java.util.Vector;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
@@ -23,6 +25,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class ClientManager {
 
     private static final Logger logger = LogManager.getLogger(ClientManager.class);
+
     private final Semaphore finishedLock = new Semaphore(1);
     private final AbstractService service;
     private final Replica replica;
@@ -30,8 +33,10 @@ public class ClientManager {
     private final int numReplicas;
     private final IdGenerator idGenerator;
     private final Map<RequestId, RequestId> requestMap;
+
     private Vector<ClientThread> clients = new Vector<>();
     private AtomicInteger runningClients = new AtomicInteger(0);
+
     private long startTime;
     private int lastRequestCount;
     private int barrierCount;
@@ -50,7 +55,7 @@ public class ClientManager {
     private static void printUsage() {
         System.out.println("bye");
         System.out.println("kill");
-        System.out.println("<clientCount> <requestsPerClient> <reqType>");
+        System.out.println("<clientCount> <requestsPerClient> <reqType> <write%>");
     }
 
     public void run() throws IOException, InterruptedException {
@@ -75,7 +80,7 @@ public class ClientManager {
                 continue;
             }
 
-            if (args.length != 3) {
+            if (args.length != 4) {
                 System.err.println("Wrong command length! Expected:");
                 printUsage();
                 continue;
@@ -84,31 +89,34 @@ public class ClientManager {
             int clientCount;
             int requests;
             int type;
+            int write;
 
             try {
                 clientCount = Integer.parseInt(args[0]);
                 requests = Integer.parseInt(args[1]);
                 type = Integer.parseInt(args[2]);
+                write = Integer.parseInt(args[3]);
             } catch (NumberFormatException e) {
                 System.err.println("Wrong argument! Expected:");
                 printUsage();
                 continue;
             }
 
-            execute(clientCount, requests, type);
+            execute(clientCount, requests, type, write);
         }
     }
 
-    void finished() {
+    private void finished() {
 
         long duration = System.currentTimeMillis() - startTime;
         System.err.println(String.format("Finished %d %4.2f\n", duration,
-                (double) lastRequestCount / duration));
+                (double) lastRequestCount * 1000 / duration));
 
+        RequestStats.getInstance().printAndResetStats();
         finishedLock.release();
     }
 
-    private void execute(int clientCount, int requests, int reqType)
+    private void execute(int clientCount, int requests, int reqType, int write)
             throws IOException, InterruptedException {
 
         finishedLock.acquire();
@@ -132,7 +140,7 @@ public class ClientManager {
         lastRequestCount = clientCount * requests;
 
         for (int i = 0; i < clientCount; i++) {
-            clients.get(i).execute(clientCount, requests, reqType);
+            clients.get(i).execute(clientCount, requests, reqType, write);
         }
     }
 
@@ -150,9 +158,13 @@ public class ClientManager {
         private ArrayBlockingQueue<Integer> sends;
         private int clientCount;
         private int reqType;
+        private int write;
+
+        private Random random;
 
         ClientThread(int clientId) throws IOException {
             this.clientId = clientId;
+            this.random = new Random();
             this.sends = new ArrayBlockingQueue<>(128);
         }
 
@@ -168,10 +180,18 @@ public class ClientManager {
                     count = sends.take();
                     requests = new Vector<>();
 
+                    long start = System.currentTimeMillis();
+
                     for (int i = 0; i < count; i++) {
 
-                        Request request = service.createRequest(new RequestId(clientId, sequenceNum++),
-                                false, reqType, clientCount * numReplicas);
+                        Request request;
+                        if (random.nextInt(100) <= write) {
+                            request = service.createRequest(new RequestId(clientId, sequenceNum++),
+                                    false, reqType, clientCount * numReplicas);
+                        } else {
+                            request = service.createRequest(new RequestId(clientId, sequenceNum++),
+                                    true, reqType, clientCount * numReplicas);
+                        }
 
                         RequestId requestId = request.getId();
                         requestMap.put(requestId, requestId);
@@ -188,16 +208,21 @@ public class ClientManager {
                         RequestId requestId = request.getId();
                         synchronized (requestId) {
                             int times = 0;
-                            while (request.getStatus() != RequestStatus.Stable) {
+                            while (request.getStatus() != RequestStatus.Delivered) {
                                 requestId.wait(1000);
                                 times++;
                                 if (times % 10 == 0) {
                                     logger.fatal("Too long " + request);
                                 }
                             }
-                            assert request.getStatus() == RequestStatus.Stable : "Not Stable " + request;
+                            assert request.getStatus() == RequestStatus.Delivered : "Not Delivered " + request;
                         }
                     }
+
+                    long duration = System.currentTimeMillis() - start;
+                    System.err.println(String.format("Client Finished %d %d %4.2f\n", clientId, duration,
+                            (double) count * 1000 / duration));
+
                     int stillActive = runningClients.decrementAndGet();
                     if (stillActive == 0) {
                         finished();
@@ -208,9 +233,10 @@ public class ClientManager {
             }
         }
 
-        void execute(int clientCount, int count, int reqType) throws InterruptedException {
+        void execute(int clientCount, int count, int reqType, int write) throws InterruptedException {
             this.clientCount = clientCount;
             this.reqType = reqType;
+            this.write = write;
             this.sends.put(count);
         }
 
