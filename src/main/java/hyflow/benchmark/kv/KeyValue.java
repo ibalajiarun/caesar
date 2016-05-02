@@ -116,13 +116,17 @@ public class KeyValue extends AbstractService {
         buffer.get(); // TransactionType
         OpType command = OpType.values()[buffer.get()];
 
-        final int key = buffer.getInt();
-        final int value = buffer.getInt();
+        final int batchSize = buffer.getInt();
 
-        if (command == OpType.Put)
-            putValue(key, value);
-        else
-            getValue(key);
+        for (int i = 0; i < batchSize; i++) {
+            final int key = buffer.getInt();
+            final int value = buffer.getInt();
+
+            if (command == OpType.Put)
+                putValue(key, value);
+            else
+                getValue(key);
+        }
     }
 
     @Override
