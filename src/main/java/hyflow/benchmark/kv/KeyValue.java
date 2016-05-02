@@ -22,6 +22,7 @@ public class KeyValue extends AbstractService {
     private static final int INITIAL_VALUE = 1000;
     private final int size;
     private final SharedObjectRegistry registry;
+    private final Random random = new Random();
 
     public KeyValue(String fileName) throws IOException {
         super(fileName);
@@ -49,13 +50,12 @@ public class KeyValue extends AbstractService {
     }
 
     @Override
-    public Request createRequest(RequestId rId, boolean read, int requestType, int clientCount) {
-        final int PAYLOAD_SIZE = 10;
-        final Random random = new Random();
+    public Request createRequest(RequestId rId, boolean read, int accessMode, int batchSize, int clientCount) {
+        final int MIN_PAYLOAD_SIZE = 6;
 
         Request request;
-        byte[] payload = new byte[PAYLOAD_SIZE];
-        int[] objectId = new int[1];
+        byte[] payload = new byte[MIN_PAYLOAD_SIZE + batchSize * 8];
+        int[] objectId = new int[batchSize];
         ByteBuffer buffer = ByteBuffer.wrap(payload);
         int key, value;
 
@@ -67,35 +67,40 @@ public class KeyValue extends AbstractService {
             buffer.put((byte) OpType.Put.ordinal());
         }
 
-        switch (requestType) {
+        buffer.putInt(batchSize);
 
-            case 0:
-                key = 0;
-                objectId[0] = key;
-                break;
+        for (int i = 0; i < batchSize; i++) {
 
-            case 1:
+            switch (accessMode) {
 
-                key = rId.getClientId();
-                objectId[0] = key;
-                break;
+                case 0:
+                    key = 0;
+                    objectId[i] = key;
+                    break;
 
-            case 2:
+                case 1:
 
-                int access = size / clientCount;
-                key = random.nextInt(access) + (access * rId.getClientId());
-                objectId[0] = key;
-                break;
+                    key = rId.getClientId() + ((int) rId.getSeqNumber() * clientCount);
+                    objectId[i] = key;
+                    break;
 
-            default:
-                key = random.nextInt(this.size);
-                objectId[0] = key;
+//            case 2:
+//
+//                int access = size / clientCount;
+//                key = random.nextInt(access) + (access * rId.getClientId());
+//                objectId[0] = key;
+//                break;
+
+                default:
+                    key = random.nextInt(this.size);
+                    objectId[i] = key;
+            }
+
+            value = random.nextInt(INITIAL_VALUE);
+
+            buffer.putInt(key);
+            buffer.putInt(value);
         }
-
-        value = random.nextInt(INITIAL_VALUE);
-
-        buffer.putInt(key);
-        buffer.putInt(value);
 
         buffer.flip();
 

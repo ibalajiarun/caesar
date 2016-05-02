@@ -59,7 +59,7 @@ public class Bank extends AbstractService {
     }
 
     @Override
-    public Request createRequest(RequestId rId, boolean read, int requestType, int clientCount) {
+    public Request createRequest(RequestId rId, boolean read, int accessMode, int batchSize, int clientCount) {
         final int PAYLOAD_SIZE = 10;
         final Random random = new Random();
 
@@ -78,7 +78,7 @@ public class Bank extends AbstractService {
         }
 
 
-        switch (requestType) {
+        switch (accessMode) {
             case 0:
 
                 src = 0;
@@ -95,16 +95,16 @@ public class Bank extends AbstractService {
                 objectIds[1] = dst;
                 break;
 
-            case 2:
-
-                int access = numAccounts / clientCount;
-                src = random.nextInt(access) + (access * rId.getClientId());
-                objectIds[0] = src;
-                do {
-                    dst = random.nextInt(access) + (access * rId.getClientId());
-                } while (src > dst);
-                objectIds[1] = dst;
-                break;
+//            case 2:
+//
+//                int access = numAccounts / clientCount;
+//                src = random.nextInt(access) + (access * rId.getClientId());
+//                objectIds[0] = src;
+//                do {
+//                    dst = random.nextInt(access) + (access * rId.getClientId());
+//                } while (src > dst);
+//                objectIds[1] = dst;
+//                break;
 
             default:
 

@@ -7,7 +7,13 @@
         </Console>
         <File name="File" fileName="${sys:id}.log" append="false">
             <Filters>
-                <!--<MarkerFilter marker="ON_RECOVERY" onMatch="ACCEPT" onMismatch="DENY"/>-->
+                <MarkerFilter marker="ON_RECOVERY" onMatch="ACCEPT" onMismatch="DENY"/>
+            </Filters>
+            <PatternLayout pattern="%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} %M - %msg%n"/>
+        </File>
+        <File name="File" fileName="${sys:id}-fatal.log" append="false">
+            <Filters>
+                <MarkerFilter marker="ClientManager" onMatch="ACCEPT" onMismatch="DENY"/>
             </Filters>
             <PatternLayout pattern="%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} %M - %msg%n"/>
         </File>

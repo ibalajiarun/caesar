@@ -7,6 +7,8 @@ import hyflow.caesar.statistics.RequestStats;
 import hyflow.common.*;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.Marker;
+import org.apache.logging.log4j.MarkerManager;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -25,6 +27,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class ClientManager {
 
     private static final Logger logger = LogManager.getLogger(ClientManager.class);
+    private static final Marker marker = MarkerManager.getMarker("ClientManager");
 
     private final Semaphore finishedLock = new Semaphore(1);
     private final AbstractService service;
@@ -55,7 +58,7 @@ public class ClientManager {
     private static void printUsage() {
         System.out.println("bye");
         System.out.println("kill");
-        System.out.println("<clientCount> <requestsPerClient> <reqType> <write%>");
+        System.out.println("<clientCount> <requestsPerClient> <conflict%> <writePercent%> <batchSize>");
     }
 
     public void run() throws IOException, InterruptedException {
@@ -88,35 +91,38 @@ public class ClientManager {
 
             int clientCount;
             int requests;
-            int type;
-            int write;
+            int conflictPercent, writePercent, batchSize;
 
             try {
                 clientCount = Integer.parseInt(args[0]);
                 requests = Integer.parseInt(args[1]);
-                type = Integer.parseInt(args[2]);
-                write = Integer.parseInt(args[3]);
+                conflictPercent = Integer.parseInt(args[2]);
+                writePercent = Integer.parseInt(args[3]);
+                batchSize = Integer.parseInt(args[4]);
             } catch (NumberFormatException e) {
                 System.err.println("Wrong argument! Expected:");
                 printUsage();
                 continue;
             }
 
-            execute(clientCount, requests, type, write);
+            execute(clientCount, requests, conflictPercent, writePercent, batchSize);
         }
     }
 
     private void finished() {
 
         long duration = System.currentTimeMillis() - startTime;
-        System.err.println(String.format("Finished %d %4.2f\n", duration,
+        System.err.println(String.format("Finished %d reqs in %d ms; Tps %4.2f\n",
+                lastRequestCount, duration,
                 (double) lastRequestCount * 1000 / duration));
 
         RequestStats.getInstance().printAndResetStats();
         finishedLock.release();
+
+        printUsage();
     }
 
-    private void execute(int clientCount, int requests, int reqType, int write)
+    private void execute(int clientCount, int requests, int conflictPercent, int writePercent, int batchSize)
             throws IOException, InterruptedException {
 
         finishedLock.acquire();
@@ -140,7 +146,7 @@ public class ClientManager {
         lastRequestCount = clientCount * requests;
 
         for (int i = 0; i < clientCount; i++) {
-            clients.get(i).execute(clientCount, requests, reqType, write);
+            clients.get(i).execute(clientCount, requests, conflictPercent, writePercent, batchSize);
         }
     }
 
@@ -157,8 +163,9 @@ public class ClientManager {
         private final int clientId;
         private ArrayBlockingQueue<Integer> sends;
         private int clientCount;
-        private int reqType;
-        private int write;
+        private int conflictPercent;
+        private int writePercent;
+        private int batchSize;
 
         private Random random;
 
@@ -174,6 +181,8 @@ public class ClientManager {
                 int sequenceNum = 0;
 
                 Integer count;
+                boolean read, conflict;
+                int accessMode;
                 Vector<Request> requests;
 
                 while (true) {
@@ -182,16 +191,21 @@ public class ClientManager {
 
                     long start = System.currentTimeMillis();
 
-                    for (int i = 0; i < count; i++) {
+                    for (int i = 0; i < count; i += batchSize) {
 
                         Request request;
-                        if (random.nextInt(100) <= write) {
-                            request = service.createRequest(new RequestId(clientId, sequenceNum++),
-                                    false, reqType, clientCount * numReplicas);
+
+                        read = random.nextInt(100) >= writePercent;
+
+                        if (conflictPercent != -1) {
+                            conflict = random.nextInt(100) < conflictPercent;
+                            accessMode = conflict ? 0 : 1;
                         } else {
-                            request = service.createRequest(new RequestId(clientId, sequenceNum++),
-                                    true, reqType, clientCount * numReplicas);
+                            accessMode = 2;
                         }
+
+                        request = service.createRequest(new RequestId(clientId, sequenceNum++),
+                                read, accessMode, batchSize, clientCount * numReplicas);
 
                         RequestId requestId = request.getId();
                         requestMap.put(requestId, requestId);
@@ -212,7 +226,7 @@ public class ClientManager {
                                 requestId.wait(1000);
                                 times++;
                                 if (times % 10 == 0) {
-                                    logger.fatal("Too long " + request);
+                                    logger.info(marker, "Too long " + request);
                                 }
                             }
                             assert request.getStatus() == RequestStatus.Delivered : "Not Delivered " + request;
@@ -233,10 +247,11 @@ public class ClientManager {
             }
         }
 
-        void execute(int clientCount, int count, int reqType, int write) throws InterruptedException {
+        void execute(int clientCount, int count, int conflictPercent, int write, int batchSize) throws InterruptedException {
             this.clientCount = clientCount;
-            this.reqType = reqType;
-            this.write = write;
+            this.conflictPercent = conflictPercent;
+            this.writePercent = write;
+            this.batchSize = batchSize;
             this.sends.put(count);
         }
 

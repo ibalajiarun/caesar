@@ -87,6 +87,8 @@ public final class Caesar implements FailureDetector.FailureDetectorListener {
 
         udpNetwork.start();
         network.start();
+
+
         failureDetector.start();
     }
 

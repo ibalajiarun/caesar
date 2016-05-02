@@ -81,6 +81,10 @@ public final class ProcessDescriptor {
     private static final String RECOVERY_LEADER = "RecoveryLeader";
     private static final int DEFAULT_RECOVERY_LEADER = 0;
 
+    private static final String FP_TIMEOUT = "FPTimeout";
+    private static final int DEFAULT_FP_TIMEOUT = 100;
+
+
     /*
      * Singleton class with static access. This allows any class on the JVM to
      * statically access the process descriptor without needing to be given a
@@ -117,6 +121,7 @@ public final class ProcessDescriptor {
     public final String zmqPort;
 
     public final int recoveryLeader;
+    public final int fpTimeout;
 
     private ProcessDescriptor(Configuration config, int localId) {
         this.localId = localId;
@@ -154,6 +159,8 @@ public final class ProcessDescriptor {
         this.recoveryLeader = config.getIntProperty(RECOVERY_LEADER,
                 DEFAULT_RECOVERY_LEADER);
 
+        this.fpTimeout = config.getIntProperty(FP_TIMEOUT,
+                DEFAULT_FP_TIMEOUT);
     }
 
     public static void initialize(Configuration config, int localId) {

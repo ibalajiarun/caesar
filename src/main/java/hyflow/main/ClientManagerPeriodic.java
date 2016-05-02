@@ -30,6 +30,7 @@ public class ClientManagerPeriodic {
     private final Network network;
     private final int numReplicas;
     private final int reqType;
+    private final int batchSize;
 
 //    private AtomicInteger count = new AtomicInteger(0);
 //    private AtomicInteger latency = new AtomicInteger(0);
@@ -51,6 +52,7 @@ public class ClientManagerPeriodic {
 
         this.requestMap = new ConcurrentHashMap<>(clientCount);
         this.reqType = 0;
+        this.batchSize = 1;
     }
 
     public void start() {
@@ -181,7 +183,7 @@ public class ClientManagerPeriodic {
                     }
                     paused.getAndSet(false);
 
-                    Request request = service.createRequest(new RequestId(clientId, sequenceNum++), false, reqType, clientCount * numReplicas);
+                    Request request = service.createRequest(new RequestId(clientId, sequenceNum++), false, reqType, batchSize, clientCount * numReplicas);
                     RequestId requestId = request.getId();
 
                     count = 0;

@@ -25,7 +25,7 @@ public abstract class AbstractService {
         logger.info("Configuration loaded from file: " + fileName);
     }
 
-    public abstract Request createRequest(RequestId rId, boolean read, int requestType, int clientCount);
+    public abstract Request createRequest(RequestId rId, boolean read, int accessMode, int batchSize, int clientCount);
 
     public abstract void executeRequest(final Request request);
 

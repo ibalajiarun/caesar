@@ -150,4 +150,7 @@ public class TcpNetwork extends Network implements Runnable {
         }
     }
 
+    public boolean isStarted() {
+        return started;
+    }
 }

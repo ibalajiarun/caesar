@@ -44,6 +44,7 @@ public class Proposer {
     private final ConcurrentMap<RequestId, RequestInfo> reqInfos;
 
     private final int localId;
+    private final int fpTimeout;
 
     Proposer(TimestampGenerator tsGenerator, ConflictDetector conflictDetector,
              Network network, ThreadDispatcher dispatcher, Caesar caesar) {
@@ -55,6 +56,7 @@ public class Proposer {
 
         int mapSize = ProcessDescriptor.getInstance().proposerMapSize;
         localId = ProcessDescriptor.getInstance().localId;
+        fpTimeout = ProcessDescriptor.getInstance().fpTimeout;
 
         this.fpReplies = new ConcurrentHashMap<>(mapSize);
         this.spReplies = new ConcurrentHashMap<>(mapSize);
@@ -281,7 +283,7 @@ public class Proposer {
 
                 info.setSlowProposeFuture(
                         dispatcher.schedule(() -> sendSlowPropose(msg.getView(), request, info),
-                                100, TimeUnit.MILLISECONDS)
+                                fpTimeout, TimeUnit.MILLISECONDS)
                 );
 
                 logger.exit();
