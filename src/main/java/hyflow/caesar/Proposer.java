@@ -301,6 +301,7 @@ public class Proposer {
                 future.cancel(false);
             }
 
+            RequestStats.getInstance().fpCount.incrementAndGet();
             info.setDone();
         }
 
@@ -334,7 +335,6 @@ public class Proposer {
 
     void onSlowPropose(SlowPropose msg, int sender) {
         logger.entry(msg, sender);
-        RequestStats.getInstance().spCount.getAndIncrement();
 
         int view = msg.getView();
 
@@ -508,6 +508,7 @@ public class Proposer {
 
             }
 
+            RequestStats.getInstance().spCount.getAndIncrement();
             info.setDone();
         }
 
@@ -516,7 +517,6 @@ public class Proposer {
 
     void onRetry(Retry msg, int sender) {
         logger.entry(msg, sender);
-        RequestStats.getInstance().retryCount.getAndIncrement();
 
         Request msgRequest = msg.getRequest();
         RequestId rId = msgRequest.getId();
@@ -571,6 +571,7 @@ public class Proposer {
                 return;
             }
 
+            RequestStats.getInstance().retryCount.getAndIncrement();
             info.setDone();
             if (logger.isTraceEnabled()) {
                 logger.trace("sending stable for {}", info);

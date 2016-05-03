@@ -83,7 +83,7 @@ public class ClientManager {
                 continue;
             }
 
-            if (args.length != 4) {
+            if (args.length != 5) {
                 System.err.println("Wrong command length! Expected:");
                 printUsage();
                 continue;

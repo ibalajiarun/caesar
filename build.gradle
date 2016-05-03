@@ -61,13 +61,13 @@ dependencies {
 //
 //}
 
-//applicationDefaultJvmArgs = ["-Xmx50g", "-Xms50g", "-ea", "-Djava.util.concurrent.ForkJoinPool.common.parallelism=100"]
-
 task upload(type: Exec, dependsOn: distTar) {
     def file = project.buildDir.absolutePath + '/distributions/caesar.tar'
     commandLine 'python3', 'copy_to_s3.py', 'caesar-hyflow', file
 }
 
-applicationDefaultJvmArgs = ["-ea"]
+//applicationDefaultJvmArgs = ["-ea", "-Djava.util.concurrent.ForkJoinPool.common.parallelism=100"]
+applicationDefaultJvmArgs = ["-Xmx25g", "-Xms20g", "-ea"]
+
 
 mainClassName = "hyflow.main.Main"
