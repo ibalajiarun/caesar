@@ -20,7 +20,7 @@
 //    private final TimestampGenerator tsGenerator;
 //    private final ConflictDetector conflictDetector;
 //    private final Network network;
-//    private final ThreadDispatcher dipatcher;
+//    private final ScheduledThreadDispatcher dipatcher;
 //    private final Caesar caesar;
 //
 //    private final ConcurrentMap<RequestId, FastProposeReplyInfo> proposalReplies;
@@ -35,7 +35,7 @@
 //    private final int localId;
 //
 //    ProposerOld(TimestampGenerator tsGenerator, ConflictDetector conflictDetector,
-//             Network network, ThreadDispatcher dispatcher, Caesar caesar) {
+//             Network network, ScheduledThreadDispatcher dispatcher, Caesar caesar) {
 //        this.tsGenerator = tsGenerator;
 //        this.conflictDetector = conflictDetector;
 //        this.network = network;

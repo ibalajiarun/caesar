@@ -2,6 +2,8 @@ package hyflow.caesar.network;
 
 import hyflow.caesar.messages.Message;
 import hyflow.common.KillOnExceptionHandler;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.io.*;
 import java.net.InetAddress;
@@ -9,14 +11,13 @@ import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.BitSet;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 public class TcpNetwork extends Network implements Runnable {
-    private final static Logger logger = Logger.getLogger(TcpNetwork.class.getCanonicalName());
+    private final static Logger logger = LogManager.getLogger(TcpNetwork.class);
     private final TcpConnection[] connections;
     private final ServerSocket server;
     private final Thread acceptorThread;
+    private final int id;
     private boolean started = false;
 
     /**
@@ -24,12 +25,15 @@ public class TcpNetwork extends Network implements Runnable {
      *
      * @throws IOException if opening server socket fails
      */
-    public TcpNetwork() throws IOException {
+    public TcpNetwork(int id) throws IOException {
+        this.id = id;
         this.connections = new TcpConnection[p.numReplicas];
-        logger.info("Opening port: " + p.getLocalProcess().getReplicaPort());
+
+        int port = p.getLocalProcess().getReplicaPort() + (id * 100);
+        logger.info("Opening port: " + port);
         this.server = new ServerSocket();
-        server.setReceiveBufferSize(256 * 1024);
-        server.bind(new InetSocketAddress((InetAddress) null, p.getLocalProcess().getReplicaPort()));
+//        server.setReceiveBufferSize(256 * 1024);
+        server.bind(new InetSocketAddress((InetAddress) null, port));
 
         this.acceptorThread = new Thread(this, "TcpNetwork");
         acceptorThread.setUncaughtExceptionHandler(new KillOnExceptionHandler());
@@ -40,11 +44,11 @@ public class TcpNetwork extends Network implements Runnable {
         if (!started) {
             for (int i = 0; i < connections.length; i++) {
                 if (i < p.localId) {
-                    connections[i] = new TcpConnection(this, p.config.getProcess(i), false);
+                    connections[i] = new TcpConnection(this, p.config.getProcess(i), id, false);
                     connections[i].start();
                 }
                 if (i > p.localId) {
-                    connections[i] = new TcpConnection(this, p.config.getProcess(i), true);
+                    connections[i] = new TcpConnection(this, p.config.getProcess(i), id, true);
                     connections[i].start();
                 }
             }
@@ -108,10 +112,10 @@ public class TcpNetwork extends Network implements Runnable {
     private void initializeConnection(Socket socket) {
         try {
             logger.info("Received connection from " + socket.getRemoteSocketAddress());
-            socket.setReceiveBufferSize(TcpConnection.TCP_BUFFER_SIZE);
-            socket.setSendBufferSize(TcpConnection.TCP_BUFFER_SIZE);
+//            socket.setReceiveBufferSize(TcpConnection.TCP_BUFFER_SIZE);
+//            socket.setSendBufferSize(TcpConnection.TCP_BUFFER_SIZE);
             socket.setTcpNoDelay(true);
-            logger.warning("Passive. RcvdBuffer: " + socket.getReceiveBufferSize() +
+            logger.info("Passive. RcvdBuffer: " + socket.getReceiveBufferSize() +
                     ", SendBuffer: " + socket.getSendBufferSize());
             DataInputStream input = new DataInputStream(
                     new BufferedInputStream(socket.getInputStream()));
@@ -120,19 +124,19 @@ public class TcpNetwork extends Network implements Runnable {
             int replicaId = input.readInt();
 
             if (replicaId < 0 || replicaId >= p.numReplicas) {
-                logger.warning("Remoce host id is out of range: " + replicaId);
+                logger.warn("Remoce host id is out of range: " + replicaId);
                 socket.close();
                 return;
             }
             if (replicaId == p.localId) {
-                logger.warning("Remote replica has same id as local: " + replicaId);
+                logger.warn("Remote replica has same id as local: " + replicaId);
                 socket.close();
                 return;
             }
 
             connections[replicaId].setConnection(socket, input, output);
         } catch (IOException e) {
-            logger.log(Level.WARNING, "Initialization of accepted connection failed.", e);
+            logger.warn("Initialization of accepted connection failed.", e);
             try {
                 socket.close();
             } catch (IOException e1) {

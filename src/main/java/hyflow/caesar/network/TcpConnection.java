@@ -13,6 +13,7 @@ import java.net.ConnectException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 
 /**
  * This class is responsible for handling stable TCP connection to other
@@ -28,15 +29,16 @@ import java.util.concurrent.ArrayBlockingQueue;
  * @see TcpNetwork
  */
 public class TcpConnection {
-    public static final int TCP_BUFFER_SIZE = 4* 1024 * 1024;
+    //    public static final int TCP_BUFFER_SIZE = 4* 1024 * 1024;
     private final static Logger logger = LogManager.getLogger(TcpConnection.class.getCanonicalName());
     private final PID replica;
     /** true if connection should be started by this replica; */
     private final boolean active;
+    private final int id;
     private final TcpNetwork network;
     private final Thread senderThread;
     private final Thread receiverThread;
-    private final ArrayBlockingQueue<byte[]> sendQueue = new ArrayBlockingQueue<byte[]>(64);
+    private final BlockingQueue<byte[]> sendQueue = new ArrayBlockingQueue<byte[]>(200000);
     private Socket socket;
     private DataInputStream input;
     private OutputStream output;
@@ -52,9 +54,10 @@ public class TcpConnection {
      * @param active - initiates connection if true; waits for remote connection
      *            otherwise.
      */
-    public TcpConnection(TcpNetwork network, PID replica, boolean active) {
+    public TcpConnection(TcpNetwork network, PID replica, int id, boolean active) {
         this.network = network;
         this.replica = replica;
+        this.id = id;
         this.active = active;
 
         logger.info("Creating connection: " + replica + " - " + active);
@@ -176,8 +179,8 @@ public class TcpConnection {
             while (true) {
                 try {
                     socket = new Socket();
-                    socket.setReceiveBufferSize(TCP_BUFFER_SIZE);
-                    socket.setSendBufferSize(TCP_BUFFER_SIZE);
+//                    socket.setReceiveBufferSize(TCP_BUFFER_SIZE);
+//                    socket.setSendBufferSize(TCP_BUFFER_SIZE);
                     logger.warn("RcvdBuffer: " + socket.getReceiveBufferSize() +
                             ", SendBuffer: " + socket.getSendBufferSize());
                     socket.setTcpNoDelay(true);
@@ -185,7 +188,7 @@ public class TcpConnection {
                     logger.info("Connecting to: " + replica);
                     try {
                         socket.connect(new InetSocketAddress(replica.getHostname(),
-                                replica.getReplicaPort()));
+                                replica.getReplicaPort() + id * 100));
                     } catch (ConnectException e) {
                         logger.warn("TCP connection with replica " + replica.getId() + " failed");
                         Thread.sleep(ProcessDescriptor.getInstance().tcpReconnectTimeout);
@@ -261,6 +264,7 @@ public class TcpConnection {
         public void run() {
             logger.info("Sender thread started.");
             try {
+                int count = 0;
                 while (!Thread.interrupted()) {
 //                    if (logger.isLoggable(Level.FINE)) {
 //                    if (sendQueue.size() > 64) {
@@ -276,7 +280,10 @@ public class TcpConnection {
 
                     try {
                         output.write(msg);
+//                        count++;
+//                        if(count % 100 == 0) {
                         output.flush();
+//                        }
                     } catch (IOException e) {
                         logger.warn("Error sending message", e);
                         close();
@@ -305,6 +312,8 @@ public class TcpConnection {
                 }
                 logger.info("Tcp connected " + replica.getId());
 
+                long start, time, sumTime = 0, maxTime = 0;
+                double count = 0;
                 while (true) {
                     if (Thread.interrupted()) {
                         logger.fatal("Receiver thread has been interrupted.");
@@ -318,7 +327,19 @@ public class TcpConnection {
                             logger.trace("Received [" + replica.getId() + "] " + message +
                                     " size: " + message.byteSize());
                         }
+//                        start = System.currentTimeMillis();
+
                         network.fireReceiveMessage(message, replica.getId());
+
+//                        time = System.currentTimeMillis() - start;
+//                        sumTime += time;
+//                        maxTime = Math.max(sumTime, maxTime);
+//                        count++;
+//                        if(count % 5000 == 0) {
+//                            System.out.println("NETWORK: MAX: " + maxTime + "AVG: " + sumTime/count);
+//                            sumTime = 0;
+//                            count = 0;
+//                        }
                     } catch (Exception e) {
                         // end of stream or problem with socket occurred so
                         // close connection and try to establish it again

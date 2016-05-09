@@ -5,8 +5,8 @@ import hyflow.caesar.Caesar;
 import hyflow.caesar.DecideCallback;
 import hyflow.common.ProcessDescriptor;
 import hyflow.common.Request;
-import hyflow.common.ThreadDispatcher;
-import hyflow.main.ClientManager;
+import hyflow.common.ScheduledThreadDispatcher;
+import hyflow.main.Client;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -20,17 +20,17 @@ public class Replica {
     private final Caesar caesar;
     private final DecideCallback callback;
     private final AbstractService service;
-    private final ThreadDispatcher deliverDispatcher;
-    private ClientManager client;
+    private final ScheduledThreadDispatcher deliverDispatcher;
+    private Client client;
 
     public Replica(AbstractService service, Caesar caesar) throws IOException {
         this.service = service;
         this.caesar = caesar;
         callback = new InnerDecideCallback();
-        deliverDispatcher = new ThreadDispatcher("DeliveryThread", ProcessDescriptor.getInstance().numThreads);
+        deliverDispatcher = new ScheduledThreadDispatcher("DeliveryThread", ProcessDescriptor.getInstance().deliveryThreads);
     }
 
-    public void start(ClientManager client) throws IOException {
+    public void start(Client client) throws IOException {
         this.client = client;
         caesar.startCaesar(callback);
     }

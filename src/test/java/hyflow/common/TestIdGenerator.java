@@ -11,9 +11,9 @@ public class TestIdGenerator {
 
     @Test
     public void testIdGenerator() {
-        SimpleIdGenerator generator = new SimpleIdGenerator(0, 100);
+        SimpleIdGenerator generator = new SimpleIdGenerator(0, 5);
         assertEquals(generator.next(), 0);
-        assertEquals(generator.next(), 100);
+        assertEquals(generator.next(), 5);
     }
 
     @Test

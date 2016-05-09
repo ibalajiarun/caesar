@@ -8,7 +8,7 @@ package hyflow.common;
 public class PID {
     private final String hostname;
     private final int replicaPort;
-    //    private final int clientPort;
+    private final int priority;
     private final int id;
 
     /**
@@ -19,14 +19,14 @@ public class PID {
      * @param replicaPort - port number used by other replicas
      * @param  - port number used by clients
      */
-    public PID(int id, String hostname, int replicaPort) {
+    public PID(int id, String hostname, int replicaPort, int priority) {
         if (hostname == null) {
             throw new NullPointerException("Hostname field cannot be null");
         }
         this.id = id;
-//        this.clientPort = clientPort;
         this.hostname = hostname;
         this.replicaPort = replicaPort;
+        this.priority = priority;
     }
 
     /**
@@ -88,5 +88,9 @@ public class PID {
 
     public String toString() {
         return "[p" + id + "] " + hostname + ", ports = (replica=" + replicaPort + ", client=" + ")";
+    }
+
+    public int getPriority() {
+        return priority;
     }
 }

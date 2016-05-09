@@ -69,8 +69,26 @@ public final class ProcessDescriptor {
     private static final String PROPOSER_MAP_SIZE = "ProposerMapSize";
     private static final int DEFAULT_PROPOSER_MAP_SIZE = 100000;
 
-    private static final String NUM_THREADS = "NumThreads";
-    private static final int DEFAULT_NUM_THREADS = 1;
+    private static final String PROPOSER_SLEEP = "ProposerSleep";
+    private static final int DEFAULT_PROPOSER_SLEEP = 1;
+
+    private static final String CREQ_THREADS = "CReqThreads";
+    private static final int DEFAULT_CREQ_THREADS = 1;
+
+    private static final String PROPOSAL_THREADS = "ProposalThreads";
+    private static final int DEFAULT_PROPOSAL_THREADS = 1;
+
+    private static final String AUX_THREADS = "AuxThreads";
+    private static final int DEFAULT_AUX_THREADS = 1;
+
+    private static final String INT_THREADS = "IntThreads";
+    private static final int DEFAULT_INT_THREADS = 1;
+
+    private static final String STABLE_THREADS = "StableThreads";
+    private static final int DEFAULT_STABLE_THREADS = 1;
+
+    private static final String DELIVERY_THREADS = "DeliveryThreads";
+    private static final int DEFAULT_DELIVERY_THREADS = 1;
 
     private static final String ZMQ_HOST = "ZmqHost";
     private static final String DEFAULT_ZMQ_HOST = "localhost";
@@ -84,6 +102,8 @@ public final class ProcessDescriptor {
     private static final String FP_TIMEOUT = "FPTimeout";
     private static final int DEFAULT_FP_TIMEOUT = 100;
 
+    private static final String MONITOR_INTERVAL = "MonitorInterval";
+    private static final int DEFAULT_MONITOR_INTERVAL = 2000;
 
     /*
      * Singleton class with static access. This allows any class on the JVM to
@@ -115,13 +135,22 @@ public final class ProcessDescriptor {
     public final int fdSendTimeout;
 
     public final int proposerMapSize;
-    public final int numThreads;
+
+    public final int proposerSleep;
+
+    public final int cReqThreads;
+    public final int proposalThreads;
+    public final int auxThreads;
+    public final int intThreads;
+    public final int stableThreads;
+    public final int deliveryThreads;
 
     public final String zmqHost;
     public final String zmqPort;
 
     public final int recoveryLeader;
     public final int fpTimeout;
+    public final int monitorInterval;
 
     private ProcessDescriptor(Configuration config, int localId) {
         this.localId = localId;
@@ -132,7 +161,14 @@ public final class ProcessDescriptor {
         this.fastQuorum = this.numReplicas - this.numReplicas / 4;
         this.classicQuorum = this.numReplicas / 2 + 1;
 
-        this.numThreads = config.getIntProperty(NUM_THREADS, DEFAULT_NUM_THREADS);
+        this.proposerSleep = config.getIntProperty(PROPOSER_SLEEP, DEFAULT_PROPOSER_SLEEP);
+
+        this.cReqThreads = config.getIntProperty(CREQ_THREADS, DEFAULT_AUX_THREADS);
+        this.proposalThreads = config.getIntProperty(PROPOSAL_THREADS, DEFAULT_PROPOSAL_THREADS);
+        this.auxThreads = config.getIntProperty(AUX_THREADS, DEFAULT_AUX_THREADS);
+        this.intThreads = config.getIntProperty(INT_THREADS, DEFAULT_AUX_THREADS);
+        this.stableThreads = config.getIntProperty(STABLE_THREADS, DEFAULT_STABLE_THREADS);
+        this.deliveryThreads = config.getIntProperty(DELIVERY_THREADS, DEFAULT_DELIVERY_THREADS);
 
         this.proposerMapSize = config.getIntProperty(PROPOSER_MAP_SIZE, DEFAULT_PROPOSER_MAP_SIZE);
 
@@ -161,6 +197,9 @@ public final class ProcessDescriptor {
 
         this.fpTimeout = config.getIntProperty(FP_TIMEOUT,
                 DEFAULT_FP_TIMEOUT);
+
+        this.monitorInterval = config.getIntProperty(MONITOR_INTERVAL,
+                DEFAULT_MONITOR_INTERVAL);
     }
 
     public static void initialize(Configuration config, int localId) {
@@ -177,6 +216,10 @@ public final class ProcessDescriptor {
      */
     public PID getLocalProcess() {
         return config.getProcess(localId);
+    }
+
+    public PID getProcess(int id) {
+        return config.getProcess(id);
     }
 
     public boolean isLocalProcessLeader() {

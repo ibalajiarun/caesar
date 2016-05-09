@@ -1,5 +1,6 @@
 package hyflow.caesar;
 
+import hyflow.common.ProcessDescriptor;
 import hyflow.common.Request;
 import hyflow.common.RequestId;
 import hyflow.common.RequestStatus;
@@ -10,7 +11,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.SortedSet;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.stream.Collectors;
 
@@ -19,13 +19,25 @@ import java.util.stream.Collectors;
  */
 public class ConflictDetector {
 
-    private final ConcurrentHashMap<RequestId, Request> requestMap;
+//    private final ConcurrentHashMap<RequestId, Request> requestMap;
+
+    private final Request[] requestMap;
+
     private final SortedSet<Request>[] objReqMap;
     private final Logger logger = LogManager.getLogger(ConflictDetector.class);
+    private final int numReplicas;
+
+    private long reqTotal = 0, reqMax = 0, reqCount;
 
     @SuppressWarnings("unchecked")
     public ConflictDetector(int numObjects) {
-        requestMap = new ConcurrentHashMap<>(1000000);
+        int mapsize = ProcessDescriptor.getInstance().proposerMapSize;
+        numReplicas = ProcessDescriptor.getInstance().numReplicas;
+        requestMap = new Request[mapsize];
+        for (int i = 0; i < mapsize; i++) {
+            requestMap[i] = new Request(null, null, null);
+        }
+
         objReqMap = new ConcurrentSkipListSet[numObjects];
         for (int i = 0; i < numObjects; i++) {
             objReqMap[i] = new ConcurrentSkipListSet<>();
@@ -35,25 +47,48 @@ public class ConflictDetector {
     public Request updateRequest(Request newReq) {
         logger.entry(newReq);
 
-        Request request = requestMap.putIfAbsent(newReq.getId(), newReq);
-        request = request == null ? newReq : request;
+//        long start = System.currentTimeMillis();
 
-        synchronized (request) {
+        RequestId rId = newReq.getId();
+        assert rId.getClientId() < numReplicas : String.format("Client Id %d is more than 5", rId.getClientId());
+        int id = rId.getClientId() + rId.getSeqNumber() * numReplicas;
 
-            if (request != newReq) {
-                request.updateWith(newReq);
-            } else {
+//        Request request = requestMap.putIfAbsent(newReq.getId(), newReq);
+
+//        long duration = (System.currentTimeMillis() - start);
+//
+//        reqTotal += duration;
+//        reqMax = Math.max(duration, reqMax);
+//        reqCount++;
+//        if(reqCount % 5000 == 0) {
+//            System.out.println(String.format("ReqMap: Avg: %f; Max %d ", reqTotal * 1.0 / reqCount, reqMax));
+//            reqCount = 0;
+//            reqTotal = 0;
+//        }
+
+        synchronized (requestMap[id]) {
+            Request request = requestMap[id];
+            if (request.getId() == null) {
+                request.updateNewWith(newReq);
                 for (int oId : request.getObjectIds()) {
                     objReqMap[oId].add(request);
                 }
+            } else {
+                request.updateWith(newReq);
             }
+            return logger.exit(request);
         }
-
-        return logger.exit(request);
     }
 
     public Request getRequest(RequestId rId) {
-        return requestMap.get(rId);
+        int id = rId.getClientId() + rId.getSeqNumber();
+        synchronized (requestMap[id]) {
+            Request req = requestMap[id];
+            if (req.getId() == null) {
+                return null;
+            }
+            return req;
+        }
     }
 
     public boolean computeWaitSetOrReject(final Request request, final SortedSet<Request> waitSet) {

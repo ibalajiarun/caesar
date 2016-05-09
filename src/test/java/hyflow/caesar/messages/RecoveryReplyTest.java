@@ -34,7 +34,7 @@ public class RecoveryReplyTest extends AbstractMessageTestCase<RecoveryReply> {
         pred.add(new RequestId(0, 201));
         pred.add(new RequestId(0, 202));
 
-        request = new Request(requestId, null, null, 0, pred, RequestStatus.Waiting);
+        request = new Request(requestId, null, null, 0, pred, RequestStatus.Waiting, 0);
         reply = new RecoveryReply(0, requestId, request);
     }
 

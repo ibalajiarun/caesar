@@ -12,10 +12,10 @@ import java.util.concurrent.ConcurrentSkipListSet;
  */
 public final class Request implements Comparable<Request> {
 
-    public final RequestId requestId;
-    public final int[] objectIds;
+    public RequestId requestId;
+    public int[] objectIds;
 
-    public final byte[] payload;
+    public byte[] payload;
 
     private Set<RequestId> pred;
 
@@ -102,6 +102,16 @@ public final class Request implements Comparable<Request> {
         pred = other.pred;
         position = other.position;
         status = other.status;
+    }
+
+    public synchronized void updateNewWith(Request newReq) {
+        requestId = newReq.requestId;
+        objectIds = newReq.objectIds;
+        payload = newReq.payload;
+        view = newReq.view;
+        pred = newReq.pred;
+        position = newReq.position;
+        status = newReq.status;
     }
 
     @Override

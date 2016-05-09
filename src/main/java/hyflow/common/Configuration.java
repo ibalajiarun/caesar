@@ -99,7 +99,7 @@ public final class Configuration {
                 break;
             }
             StringTokenizer st = new StringTokenizer(line, ":");
-            PID pid = new PID(i, st.nextToken(), Integer.parseInt(st.nextToken()));
+            PID pid = new PID(i, st.nextToken(), Integer.parseInt(st.nextToken()), Integer.parseInt(st.nextToken()));
             processes.add(pid);
             logger.info(pid.toString());
             i++;

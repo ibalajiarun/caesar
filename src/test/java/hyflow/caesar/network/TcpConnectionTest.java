@@ -47,7 +47,7 @@ public class TcpConnectionTest {
     public void activeConnectionShouldSendLocalId() throws Exception {
         TcpNetwork network = mock(TcpNetwork.class);
         boolean active = true;
-        TcpConnection connection = new TcpConnection(network, pid2, active);
+        TcpConnection connection = new TcpConnection(network, pid2, 0, active);
         connection.start();
 
         ServerSocket server = new ServerSocket();
@@ -66,7 +66,7 @@ public class TcpConnectionTest {
     public void shouldSendMessage() throws Exception {
         TcpNetwork network = mock(TcpNetwork.class);
         boolean active = true;
-        TcpConnection connection = new TcpConnection(network, pid2, active);
+        TcpConnection connection = new TcpConnection(network, pid2, 0, active);
         connection.start();
 
         // handle connect
@@ -97,7 +97,7 @@ public class TcpConnectionTest {
     public void activeConnectionShouldNotBlockSendMethodWhenNotConnected() throws Exception {
         TcpNetwork network = mock(TcpNetwork.class);
         boolean active = true;
-        TcpConnection connection = new TcpConnection(network, pid2, active);
+        TcpConnection connection = new TcpConnection(network, pid2, 0, active);
         connection.start();
 
         Thread.sleep(100);
@@ -117,7 +117,7 @@ public class TcpConnectionTest {
     public void passiveConnectionShouldNotBlockSendMethodWhenNotConnected() throws Exception {
         TcpNetwork network = mock(TcpNetwork.class);
         boolean active = false;
-        TcpConnection connection = new TcpConnection(network, pid2, active);
+        TcpConnection connection = new TcpConnection(network, pid2, 0, active);
         connection.start();
 
         Thread.sleep(100);
@@ -133,7 +133,7 @@ public class TcpConnectionTest {
     public void shouldIgnoreMessagesSentBeforeConnect() throws Exception {
         TcpNetwork network = mock(TcpNetwork.class);
         boolean active = true;
-        TcpConnection connection = new TcpConnection(network, pid2, active);
+        TcpConnection connection = new TcpConnection(network, pid2, 0, active);
         connection.start();
         connection.send(new byte[]{1, 2, 3, 4});
 

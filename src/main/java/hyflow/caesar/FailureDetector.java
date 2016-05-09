@@ -125,6 +125,7 @@ final public class FailureDetector implements Runnable {
                         for (int id = 0; id < pd.numReplicas; id++) {
                             if (id != pd.localId) {
                                 if (now > lastHeartbeatRcvdTS[id] + suspectTimeout && active.get(id)) {
+                                    logger.fatal("Suspecting {} because now {} > lastBeat {} + Timeout {}", id, now, lastHeartbeatRcvdTS[id], suspectTimeout);
                                     active.set(id, false);
                                     fdListener.suspect(id);
                                 }
@@ -155,8 +156,10 @@ final public class FailureDetector implements Runnable {
     final class InnerMessageHandler implements MessageHandler {
 
         public void onMessageReceived(Message message, int sender) {
-            if (pd.isLocalProcessLeader()) {
-                lastHeartbeatRcvdTS[sender] = getTime();
+            synchronized (this) {
+                if (pd.isLocalProcessLeader()) {
+                    lastHeartbeatRcvdTS[sender] = getTime();
+                }
             }
         }
 

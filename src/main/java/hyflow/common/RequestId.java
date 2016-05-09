@@ -48,7 +48,7 @@ public class RequestId implements Serializable, Comparable<RequestId> {
      * 
      * @return the request sequence number
      */
-    public long getSeqNumber() {
+    public int getSeqNumber() {
         return seqNumber;
     }
 

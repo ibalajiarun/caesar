@@ -5,11 +5,17 @@ package hyflow.common;
  */
 public class RequestInfo {
 
-    private final RequestId rId;
+    private RequestId rId;
     private int view;
     private RequestStatus status;
 
-    public RequestInfo(RequestId rId, int view, RequestStatus status) {
+    public RequestInfo() {
+        this.rId = null;
+        this.view = -1;
+        this.status = RequestStatus.Waiting;
+    }
+
+    public void init(RequestId rId, int view, RequestStatus status) {
         this.rId = rId;
         this.view = view;
         this.status = status;
