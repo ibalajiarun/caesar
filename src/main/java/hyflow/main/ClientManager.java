@@ -24,7 +24,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * Created by balajiarun on 3/7/16.
  */
-public class ClientManager {
+public class ClientManager implements Client {
 
     private static final Logger logger = LogManager.getLogger(ClientManager.class);
     private static final Marker marker = MarkerManager.getMarker("ClientManager");
@@ -35,10 +35,12 @@ public class ClientManager {
     private final Caesar caesar;
     private final int numReplicas;
     private final IdGenerator idGenerator;
-    private final Map<RequestId, RequestId> requestMap;
+    private final Map<RequestId, Request> requestMap;
 
     private Vector<ClientThread> clients = new Vector<>();
     private AtomicInteger runningClients = new AtomicInteger(0);
+
+    private AtomicInteger reqDoneCount = new AtomicInteger(0);
 
     private long startTime;
     private int lastRequestCount;
@@ -53,6 +55,8 @@ public class ClientManager {
         this.idGenerator = new SimpleIdGenerator(replicaId, numReplicas);
 
         this.requestMap = new ConcurrentHashMap<>();
+
+        new MonitorThread().start();
     }
 
     private static void printUsage() {
@@ -61,16 +65,28 @@ public class ClientManager {
         System.out.println("<clientCount> <requestsPerClient> <conflict%> <writePercent%> <batchSize>");
     }
 
-    public void run() throws IOException, InterruptedException {
+    @Override
+    public void run() {
         BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
         printUsage();
         while (true) {
-            String line = reader.readLine();
+            String line = null;
+            try {
+                line = reader.readLine();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
             if (line == null) {
                 break;
             }
 
             String[] args = line.split(" ");
+
+            if (args[0].equals("gc")) {
+                gc();
+                continue;
+            }
 
             if (args[0].equals("bye")) {
                 break;
@@ -80,7 +96,7 @@ public class ClientManager {
                 for (ClientThread client : clients) {
                     client.interrupt();
                 }
-                continue;
+                break;
             }
 
             if (args.length != 5) {
@@ -105,8 +121,22 @@ public class ClientManager {
                 continue;
             }
 
-            execute(clientCount, requests, conflictPercent, writePercent, batchSize);
+            try {
+                execute(clientCount, requests, conflictPercent, writePercent, batchSize);
+            } catch (IOException e) {
+                e.printStackTrace();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
         }
+    }
+
+    private void gc() {
+        caesar.enterBarrier("pause", numReplicas);
+        caesar.refresh();
+        System.gc();
+        caesar.enterBarrier("refresh", numReplicas);
+        System.out.println("refreshed");
     }
 
     private void finished() {
@@ -117,9 +147,10 @@ public class ClientManager {
                 (double) lastRequestCount * 1000 / duration));
 
         RequestStats.getInstance().printAndResetStats();
-        finishedLock.release();
 
         printUsage();
+
+        finishedLock.release();
     }
 
     private void execute(int clientCount, int requests, int conflictPercent, int writePercent, int batchSize)
@@ -127,11 +158,6 @@ public class ClientManager {
 
         finishedLock.acquire();
 
-        caesar.enterBarrier("pause" + barrierCount, numReplicas);
-        caesar.refresh();
-        System.gc();
-        System.gc();
-        caesar.enterBarrier("refresh" + barrierCount, numReplicas);
         barrierCount++;
 
         for (int i = clients.size(); i < clientCount; i++) {
@@ -150,12 +176,43 @@ public class ClientManager {
         }
     }
 
+    @Override
     public void notifyClient(Request request) {
-        RequestId rId = requestMap.get(request.getId());
-        if (rId != null) {
+        Request req = requestMap.get(request.getId());
+        if (req != null) {
+            RequestId rId = req.getId();
+            reqDoneCount.incrementAndGet();
+            req.setStatus(RequestStatus.Delivered);
             synchronized (rId) {
                 rId.notifyAll();
             }
+        }
+    }
+
+    class MonitorThread extends Thread {
+
+        @Override
+        public void run() {
+            int interval = ProcessDescriptor.getInstance().monitorInterval;
+            int prevCount = 1, count;
+            while (true) {
+
+                try {
+                    Thread.sleep(interval);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+
+                count = reqDoneCount.getAndSet(0);
+                if (count == 0 && prevCount == 0) {
+                    continue;
+                }
+
+                System.out.println("Throughput: " + count * 1000.0 / interval);
+                prevCount = count;
+
+            }
+
         }
     }
 
@@ -188,6 +245,7 @@ public class ClientManager {
                 while (true) {
                     count = sends.take();
                     requests = new Vector<>();
+                    sequenceNum = 0;
 
                     long start = System.currentTimeMillis();
 
@@ -208,13 +266,17 @@ public class ClientManager {
                                 read, accessMode, batchSize, clientCount * numReplicas);
 
                         RequestId requestId = request.getId();
-                        requestMap.put(requestId, requestId);
+                        requestMap.put(requestId, request);
                         requests.add(request);
 
                         replica.submit(request);
 
+                        if (sequenceNum % 10 == 0) {
+                            Thread.sleep(ProcessDescriptor.getInstance().proposerSleep);
+                        }
+
                     }
-                    Thread.sleep(100);
+//                    Thread.sleep(100);
                     if (ProcessDescriptor.getInstance().localId == 2) {
 //                        System.exit(0);
                     }
@@ -226,7 +288,8 @@ public class ClientManager {
                                 requestId.wait(1000);
                                 times++;
                                 if (times % 10 == 0) {
-                                    logger.info(marker, "Too long " + request);
+                                    if (logger.isInfoEnabled())
+                                        logger.info(marker, "Too long " + request);
                                 }
                             }
                             assert request.getStatus() == RequestStatus.Delivered : "Not Delivered " + request;
@@ -248,6 +311,7 @@ public class ClientManager {
         }
 
         void execute(int clientCount, int count, int conflictPercent, int write, int batchSize) throws InterruptedException {
+            System.out.println(String.format("Executing %d %d %d %d %d", clientCount, count, conflictPercent, write, batchSize));
             this.clientCount = clientCount;
             this.conflictPercent = conflictPercent;
             this.writePercent = write;

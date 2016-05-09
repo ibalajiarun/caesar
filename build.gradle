@@ -67,7 +67,7 @@ task upload(type: Exec, dependsOn: distTar) {
 }
 
 //applicationDefaultJvmArgs = ["-ea", "-Djava.util.concurrent.ForkJoinPool.common.parallelism=100"]
-applicationDefaultJvmArgs = ["-Xmx25g", "-Xms20g", "-ea"]
+applicationDefaultJvmArgs = ["-Xmx7g", "-Xms5g", "-ea", "-XX:+UseG1GC", "-XX:MaxGCPauseMillis=200", "-XX:InitiatingHeapOccupancyPercent=90"]
 
 
 mainClassName = "hyflow.main.Main"

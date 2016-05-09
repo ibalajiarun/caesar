@@ -89,7 +89,7 @@ public class Bank extends AbstractService {
 
             case 1:
 
-                src = rId.getClientId();
+                src = -1;
                 objectIds[0] = src;
                 dst = numAccounts - rId.getClientId() - 1;
                 objectIds[1] = dst;

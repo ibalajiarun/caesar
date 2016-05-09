@@ -2,7 +2,6 @@ package hyflow.main;
 
 import hyflow.benchmark.AbstractService;
 import hyflow.caesar.Caesar;
-import hyflow.caesar.network.Network;
 import hyflow.caesar.replica.Replica;
 import hyflow.common.*;
 import org.apache.logging.log4j.LogManager;
@@ -27,7 +26,6 @@ public class ClientManagerPeriodic {
     private final ClientThread[] clients;
     private final ConcurrentMap<RequestId, RequestId> requestMap;
     private final Caesar caesar;
-    private final Network network;
     private final int numReplicas;
     private final int reqType;
     private final int batchSize;
@@ -41,7 +39,6 @@ public class ClientManagerPeriodic {
         this.replicaId = replicaId;
         this.replica = replica;
         this.caesar = caesar;
-        this.network = caesar.getNetwork();
 
         this.clients = new ClientThread[clientCount];
         this.numReplicas = ProcessDescriptor.getInstance().numReplicas;
@@ -119,7 +116,7 @@ public class ClientManagerPeriodic {
                     int totalCount = aggregateCount();
                     if (totalCount > 0) {
                         double gtps = totalCount / (sleepTime * 0.001);
-                        logger.fatal("Tps: " + gtps);
+                        System.out.println("Tps: " + gtps);
 
                         double lat = totalTime / totalCount;
 
@@ -183,7 +180,9 @@ public class ClientManagerPeriodic {
                     }
                     paused.getAndSet(false);
 
-                    Request request = service.createRequest(new RequestId(clientId, sequenceNum++), false, reqType, batchSize, clientCount * numReplicas);
+                    Request request = service.createRequest(
+                            new RequestId(clientId, sequenceNum++),
+                            false, reqType, batchSize, clientCount * numReplicas);
                     RequestId requestId = request.getId();
 
                     count = 0;

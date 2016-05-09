@@ -31,8 +31,8 @@ public class KeyValue extends AbstractService {
         registry = new SharedObjectRegistry(size);
 
         for (int id = 0; id < this.size; id++) {
-            Value account = new Value(id, INITIAL_VALUE);
-            this.registry.registerObjects(id, account);
+            Value val = new Value(id, INITIAL_VALUE);
+            this.registry.registerObjects(id, val);
         }
 
     }
@@ -50,7 +50,7 @@ public class KeyValue extends AbstractService {
     }
 
     @Override
-    public Request createRequest(RequestId rId, boolean read, int accessMode, int batchSize, int clientCount) {
+    public Request createRequest(RequestId rId, boolean read, int accessMode, int batchSize, int numReplicas) {
         final int MIN_PAYLOAD_SIZE = 6;
 
         Request request;
@@ -80,7 +80,7 @@ public class KeyValue extends AbstractService {
 
                 case 1:
 
-                    key = rId.getClientId() + ((int) rId.getSeqNumber() * clientCount);
+                    key = rId.getClientId() + (rId.getSeqNumber() * numReplicas);
                     objectId[i] = key;
                     break;
 

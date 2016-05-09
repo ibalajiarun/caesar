@@ -18,10 +18,10 @@ public class Main {
         Option helpOpt = new Option("h", "help", false, "print this message");
 
         Option clientCountOpt = Option.builder("c")
-                .longOpt("clients")
+                .longOpt("client")
                 .hasArg()
-                .desc("number of clients")
-//                .required()
+                .desc("client name")
+                .required()
                 .build();
 
         Option replicaIdOpt = Option.builder("id")
@@ -29,13 +29,6 @@ public class Main {
                 .hasArg()
                 .desc("replica id")
                 .required()
-                .build();
-
-        Option testTimeOpt = Option.builder("t")
-                .longOpt("test-time")
-                .hasArg()
-                .desc("test time")
-//                .required()
                 .build();
 
         Option benchmarkOpt = Option.builder("b")
@@ -64,7 +57,6 @@ public class Main {
         options.addOption(helpOpt);
         options.addOption(clientCountOpt);
         options.addOption(replicaIdOpt);
-        options.addOption(testTimeOpt);
         options.addOption(benchmarkOpt);
         options.addOption(benchConfigOpt);
         options.addOption(propFileOpt);
@@ -74,7 +66,7 @@ public class Main {
 
     public static void main(String[] args) throws Exception {
 
-        final String USAGE = "caesar [-h] -id <id> -c <clients> -t <test time> -b <benchmark> -bc <benchmark config> -p <properties file>";
+        final String USAGE = "caesar [-h] -id <id> -c <clients> -b <benchmark> -bc <benchmark config> -p <properties file>";
 
         Options options = buildOptions();
 
@@ -83,9 +75,8 @@ public class Main {
             line = new DefaultParser().parse(options, args, false);
 
             int localId = Integer.parseInt(line.getOptionValue("id"));
-//            int numClients = Integer.parseInt(line.getOptionValue("c"));
-//            int roundTime = Integer.parseInt(line.getOptionValue("t"));
 
+            String clientName = line.getOptionValue("c");
             String bench = line.getOptionValue("b");
             String benchFile = line.getOptionValue("bc");
             String propFile = line.getOptionValue("p");
@@ -103,11 +94,13 @@ public class Main {
             Caesar caesar = new Caesar(service.getTotalObjects());
             Replica replica = new Replica(service, caesar);
 
-            ClientManager client = new ClientManager(localId, service, replica, caesar);
+            Class<?> cClass = Class.forName(clientName);
+            Constructor<?> cConstructor = cClass.getConstructor(int.class, AbstractService.class, Caesar.class);
+            Client client = (Client) cConstructor.newInstance(localId, service, caesar);
 
             replica.start(client);
 
-            Thread.sleep(10000);
+            Thread.sleep(5000);
 
             System.out.println("Start Barrier");
             caesar.enterBarrier("start", ProcessDescriptor.getInstance().numReplicas);
