@@ -32,9 +32,9 @@ public class TcpNetwork extends Network implements Runnable {
         int port = p.getLocalProcess().getReplicaPort() + (id * 100);
         logger.info("Opening port: " + port);
         this.server = new ServerSocket();
-//        server.setReceiveBufferSize(256 * 1024);
+//        server.setReceiveBufferSize(TcpConnection.TCP_BUFFER_SIZE);
         server.bind(new InetSocketAddress((InetAddress) null, port));
-
+        logger.info("Buffer Size:" + server.getReceiveBufferSize());
         this.acceptorThread = new Thread(this, "TcpNetwork");
         acceptorThread.setUncaughtExceptionHandler(new KillOnExceptionHandler());
     }
