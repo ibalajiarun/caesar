@@ -1,7 +1,10 @@
 package hyflow.common;
 
+import hyflow.caesar.FastProposeReplyInfo;
+
 import java.util.Arrays;
 import java.util.Set;
+import java.util.SortedSet;
 import java.util.concurrent.ConcurrentSkipListSet;
 
 /**
@@ -25,6 +28,12 @@ public final class Request implements Comparable<Request> {
 
     private boolean hasWhitelist;
 
+//    public long startWait;
+//    public long waitDuration;
+//    public int onProposeDuration;
+//    public int onRetryDuration;
+//    public long sentTime;
+
     public Request(RequestId requestId, int[] objectIds, byte[] payload) {
         this.requestId = requestId;
         this.objectIds = objectIds;
@@ -32,6 +41,7 @@ public final class Request implements Comparable<Request> {
         this.status = RequestStatus.Waiting;
         this.pred = new ConcurrentSkipListSet<>();
         this.view = 0;
+        this.position = -1;
     }
 
     public Request(RequestId requestId, int[] objectIds, byte[] payload,
@@ -104,7 +114,7 @@ public final class Request implements Comparable<Request> {
         status = other.status;
     }
 
-    public synchronized void updateNewWith(Request newReq) {
+    public synchronized void init(Request newReq) {
         requestId = newReq.requestId;
         objectIds = newReq.objectIds;
         payload = newReq.payload;
@@ -135,11 +145,11 @@ public final class Request implements Comparable<Request> {
         return "Request{" +
                 "requestId=" + requestId +
                 ", objectIds=" + Arrays.toString(objectIds) +
-                ", payload=" + Arrays.toString(payload) +
-                ", pred=" + pred +
+//                ", payload=" + Arrays.toString(payload) +
+//                ", pred=" + pred +
                 ", position=" + position +
                 ", status=" + status +
-                ", view=" + view +
+//                ", view=" + view +
                 '}';
     }
 

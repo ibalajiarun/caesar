@@ -8,12 +8,10 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.Marker;
 import org.apache.logging.log4j.MarkerManager;
+import org.apache.logging.log4j.core.appender.SyslogAppender;
 
 import java.util.*;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.stream.Collectors;
 
 /**
@@ -22,11 +20,11 @@ import java.util.stream.Collectors;
 public class Proposer {
 
     private static final Logger logger = LogManager.getLogger(Proposer.class);
-    private static final Marker ON_PROPOSE = MarkerManager.getMarker("ON_PROPOSE");
-    private static final Marker PROPOSE_RESUME = MarkerManager.getMarker("PROPOSE_RESUME");
-    private static final Marker ON_PROPOSE_REPLY = MarkerManager.getMarker("ON_PROPOSE_REPLY");
-    private static final Marker STABLE = MarkerManager.getMarker("ON_STABLE");
-    private static final Marker RECOVERY = MarkerManager.getMarker("ON_RECOVERY");
+//    private static final Marker ON_PROPOSE = MarkerManager.getMarker("ON_PROPOSE");
+//    private static final Marker PROPOSE_RESUME = MarkerManager.getMarker("PROPOSE_RESUME");
+//    private static final Marker ON_PROPOSE_REPLY = MarkerManager.getMarker("ON_PROPOSE_REPLY");
+//    private static final Marker STABLE = MarkerManager.getMarker("ON_STABLE");
+//    private static final Marker RECOVERY = MarkerManager.getMarker("ON_RECOVERY");
 
     private final TimestampGenerator tsGenerator;
     private final ConflictDetector conflictDetector;
@@ -38,18 +36,6 @@ public class Proposer {
     private final Network stableChannel;
     private final Network otherChannel;
 
-//    private final ConcurrentMap<RequestId, FastProposeReplyInfo> fpReplies;
-//    private final ConcurrentMap<RequestId, SlowProposeReplyInfo> spReplies;
-//
-//    private final ConcurrentMap<RequestId, RetryReplyInfo> retryReplies;
-//
-//    private final ConcurrentMap<RequestId, RecoveryInfo> recoveryReplies;
-//
-//    private final ConcurrentMap<RequestId, Queue<Runnable>> proposeRunnables;
-//    private final ConcurrentMap<RequestId, Queue<Runnable>> deliverRunnables;
-//
-//    private final ConcurrentMap<RequestId, RequestInfo> reqInfos;
-
     private final FastProposeReplyInfo[] fpReplies;
     private final SlowProposeReplyInfo[] spReplies;
 
@@ -58,18 +44,16 @@ public class Proposer {
     private final RecoveryInfo[] recoveryReplies;
 
     private final Queue<Runnable>[] proposeRunnables;
-    private final Queue<Runnable>[] deliverRunnables;
+    private final ConcurrentMap<RequestId, Runnable>[] deliverRunnables;
 
     private final RequestInfo[] reqInfos;
+
+    private final Request[] proposedReqs;
 
     private final int localId;
     private final int fpTimeout;
     private final int threadSleep;
     private final int numReplicas;
-    private long fpTotal = 0, fpMax = 0, fpCount;
-    private long fpgTotal = 0, fpgMax = 0, fpgCount;
-    private long prTotal = 0, prMax = 0, prCount;
-    private long riTotal = 0, riMax = 0, riCount;
 
     Proposer(TimestampGenerator tsGenerator, ConflictDetector conflictDetector,
              Network proposeChannel, Network repliesChannel, Network stableChannel, Network otherChannel,
@@ -92,51 +76,30 @@ public class Proposer {
         threadSleep = pd.proposerSleep;
         this.numReplicas = pd.numReplicas;
 
-//        this.fpReplies = new ConcurrentHashMap<>(mapSize);
-//        this.spReplies = new ConcurrentHashMap<>(mapSize);
-//
-//        this.retryReplies = new ConcurrentHashMap<>(mapSize);
-//        this.recoveryReplies = new ConcurrentHashMap<>(mapSize);
-//
-//        this.proposeRunnables = new ConcurrentHashMap<>(mapSize);
-//        this.deliverRunnables = new ConcurrentHashMap<>(mapSize);
-//
-//        this.reqInfos = new ConcurrentHashMap<>(mapSize);
-
         this.fpReplies = new FastProposeReplyInfo[mapSize];
-//        for (int i = 0; i < mapSize; i++) {
-//            fpReplies[i] = new FastProposeReplyInfo(null, pd.numReplicas);
-//        }
-//
+
         this.spReplies = new SlowProposeReplyInfo[mapSize];
-//        for (int i = 0; i < mapSize; i++) {
-//            spReplies[i] = new SlowProposeReplyInfo(null, pd.numReplicas);
-//        }
-//
+
         this.retryReplies = new RetryReplyInfo[mapSize];
-//        for (int i = 0; i < mapSize; i++) {
-//            retryReplies[i] = new RetryReplyInfo(null, pd.numReplicas);
-//        }
-//
+
         this.recoveryReplies = new RecoveryInfo[mapSize];
-//        for (int i = 0; i < mapSize; i++) {
-//            recoveryReplies[i] = new RecoveryInfo(null, pd.numReplicas);
-//        }
 
         this.proposeRunnables = new BlockingQueue[mapSize];
         for (int i = 0; i < mapSize; i++) {
             proposeRunnables[i] = new LinkedBlockingQueue<>();
         }
 
-        this.deliverRunnables = new BlockingQueue[mapSize];
+        this.deliverRunnables = new ConcurrentMap[mapSize];
         for (int i = 0; i < mapSize; i++) {
-            deliverRunnables[i] = new LinkedBlockingQueue<>();
+            deliverRunnables[i] = new ConcurrentHashMap<>(mapSize / 4);
         }
 
         this.reqInfos = new RequestInfo[mapSize];
         for (int i = 0; i < mapSize; i++) {
             reqInfos[i] = new RequestInfo();
         }
+
+        this.proposedReqs = new Request[mapSize];
     }
 
     private int getIntId(RequestId rId) {
@@ -144,53 +107,48 @@ public class Proposer {
     }
 
     void fastPropose(Request request) {
-        logger.entry();
+//        logger.entry();
 
         request.setPosition(tsGenerator.newTimestamp());
         request.setView(0);
         sendFastPropose(0, request, null);
 
-        logger.exit();
+//        try {
+//            Thread.sleep(threadSleep);
+//        } catch (InterruptedException e) {
+//            e.printStackTrace();
+//        }
+
+//        logger.exit();
     }
 
     private void sendFastPropose(int view, Request request, Set<RequestId> whiteList) {
-        logger.entry(view, request);
+//        logger.entry(view, request);
 
         FastPropose proposeMsg = new FastPropose(view, request, whiteList);
 
-//        long start = System.currentTimeMillis();
-
         int id = getIntId(request.getId());
         fpReplies[id] = new FastProposeReplyInfo(request, ProcessDescriptor.getInstance().numReplicas);
-
-//        fpReplies.put(request.getIntId(),
-//                new FastProposeReplyInfo(request, ProcessDescriptor.getInstance().numReplicas));
-
-//        long duration = System.currentTimeMillis() - start;
-//
-//        fpTotal += duration;
-//        fpMax = Math.max(duration, fpMax);
-//        fpCount++;
-//        if(fpCount % 5000 == 0) {
-//            System.out.println(String.format("FP Replies Put: Avg: %f; Max %d ", fpTotal * 1.0 / fpCount, fpMax));
-//            fpCount = 0;
-//            fpTotal = 0;
-//        }
+        this.proposedReqs[id] = request;
 
         proposeChannel.sendToAll(proposeMsg);
+//        request.sentTime = System.currentTimeMillis();
+//        if(logger.isDebugEnabled()) {
+//            logger.debug("Propose: {} ({})", request.getId(), request.getPosition());
+//        }
 
-        logger.exit();
+//        logger.exit();
     }
 
     void onFastPropose(FastPropose msg, int sender) {
-        logger.entry(msg, sender);
+//        logger.entry(msg, sender);
+
+        long start = System.currentTimeMillis();
 
         int view = msg.getView();
 
         Request msgRequest = msg.getRequest();
         RequestId rId = msgRequest.getId();
-
-//        long start = System.currentTimeMillis();
 
         int id = getIntId(rId);
         synchronized (reqInfos[id]) {
@@ -199,44 +157,14 @@ public class Proposer {
             if (rInfo.getId() == null) {
                 rInfo.init(rId, view, RequestStatus.PreFastPending);
             }
-//        }
-//        RequestInfo reqInfo = reqInfos.computeIfAbsent(rId,
-//                k -> new RequestInfo(rId, view, RequestStatus.PreFastPending));
 
-//        long duration = System.currentTimeMillis() - start;
-//
-//        riTotal += duration;
-//        riMax = Math.max(duration, riMax);
-//        riCount++;
-//        if(riCount % 5000 == 0) {
-//            System.out.println(String.format("ReqInfos: Avg: %f; Max %d ", riTotal * 1.0 / riCount, riMax));
-//            riCount = 0;
-//            riTotal = 0;
-//        }
-
-//        synchronized (reqInfo) {
 
             if ((rInfo.getView() > view) || (rInfo.getView() == view
-                    && rInfo.getStatusOrdinal() > RequestStatus.PreFastPending.ordinal())) {
-                logger.debug(ON_PROPOSE, "Disregarding {} {}", msg, rInfo);
-                logger.exit();
+                    && rInfo.getStatusOrdinal() > RequestStatus.FastPending.ordinal())) {
+//                logger.debug(ON_PROPOSE, "Disregarding {} {}", msg, rInfo);
+//                logger.exit();
                 return;
             }
-
-//            start = System.currentTimeMillis();
-
-//            proposeRunnables.computeIfAbsent(rId, k -> new ConcurrentLinkedQueue<>());
-
-//            duration = System.currentTimeMillis() - start;
-//
-//            prTotal += duration;
-//            prMax = Math.max(duration, prMax);
-//            prCount++;
-//            if(prCount % 5000 == 0) {
-//                System.out.println(String.format("PropRuns: Avg: %f; Max %d ", prTotal * 1.0 / prCount, prMax));
-//                prCount = 0;
-//                prTotal = 0;
-//            }
 
             Request request = conflictDetector.updateRequest(msgRequest);
 
@@ -249,30 +177,49 @@ public class Proposer {
             SortedSet<Request> waitReqs = new TreeSet<>();
             boolean rejected = conflictDetector.computeWaitSetOrReject(request, waitReqs);
 
+//            if(waitReqs.size() > 0) {
+//////                FastProposeReply replyMsg = new FastProposeReply(view, request.getId(),
+//////                        FastProposeReply.Status.REPROPOSE, new TreeSet<>(), request.getPosition());
+////////                System.out.println("Asking for repropose (" + request.getPosition() + ") " + waitReqs.size());
+//////                repliesChannel.sendMessage(replyMsg, sender);
+//                sendFastProposeReject(rInfo, view, sender, request);
+//            }
+//            else
             if (rejected) {
-
-                if (logger.isDebugEnabled()) {
-                    logger.debug(ON_PROPOSE, "Rejected: {}; Wait Set: {}", request, waitReqs);
-                }
-
+//                if (logger.isDebugEnabled()) {
+//                    logger.debug(ON_PROPOSE, "Rejected: {}; Wait Set: {}", request, waitReqs);
+//                }
                 sendFastProposeReject(rInfo, view, sender, request);
             } else {
                 fastProposeResume(rInfo, request, view, sender, msg.getWhiteList(), waitReqs, 0);
             }
+
+//            request.onProposeDuration = (int) (System.currentTimeMillis() - start);
         }
 
-        logger.exit();
+//        logger.exit();
     }
 
     private void fastProposeResume(RequestInfo reqInfo, Request request, int view, int sender,
                                    Set<RequestId> whiteList, SortedSet<Request> waitReqs, int startIdx) {
-        logger.entry(request, view, sender, waitReqs, startIdx);
+//        logger.entry(request, view, sender, waitReqs, startIdx);
+
+//        if(waitReqs.size() > 20) {
+//            sendFastProposeReject(reqInfo, view, sender, request);
+//            return;
+//        }
+
+        long curr = System.currentTimeMillis();
+//        if(request.startWait > 0) {
+//            request.waitDuration += curr - request.startWait;
+//            request.startWait = 0;
+//        }
 
         synchronized (reqInfo) {
 
             if ((reqInfo.getView() > view) || (reqInfo.getView() == view
                     && reqInfo.getStatusOrdinal() > RequestStatus.FastPending.ordinal())) {
-                logger.exit();
+//                logger.exit();
                 return;
             }
 
@@ -286,26 +233,31 @@ public class Proposer {
 
                     synchronized (prQ) {
 
-                        if (req.getStatus().ordinal() < RequestStatus.Accepted.ordinal()) {
+                        if (request.getPosition() < req.getPosition()
+                                && !req.getPred().contains(request.getId())) {
 
-                            prQ.add(new OnFastProposeRunner(reqInfo, request, view, sender, whiteList,
-                                    waitReqs, index));
-                            if (logger.isDebugEnabled()) {
-                                logger.debug("{} is going to wait for {}; WaitReqs {}", request,
-                                        req, waitReqs);
+                            if (req.getStatus().ordinal() < RequestStatus.Accepted.ordinal()) {
+
+                                prQ.add(new OnFastProposeRunner(reqInfo, request, view, sender, whiteList,
+                                        waitReqs, index));
+//                                request.startWait = System.currentTimeMillis();
+//                            if (logger.isDebugEnabled()) {
+//                                logger.debug("{} is going to wait for {}; WaitReqs {}", request,
+//                                        req, waitReqs);
+//                            }
+//                            logger.exit();
+                                return;
+
+                            } else {
+
+//                            if (logger.isTraceEnabled()) {
+//                                logger.trace("{} does not contain {}", req, request);
+//                            }
+                                sendFastProposeReject(reqInfo, view, sender, request);
+//                            logger.exit();
+                                return;
+
                             }
-                            logger.exit();
-                            return;
-
-                        } else if (!req.getPred().contains(request.getId())) {
-
-                            if (logger.isTraceEnabled()) {
-                                logger.trace("{} does not contain {}", req, request);
-                            }
-                            sendFastProposeReject(reqInfo, view, sender, request);
-                            logger.exit();
-                            return;
-
                         }
                     }
 
@@ -318,16 +270,22 @@ public class Proposer {
             request.setPred(predSet);
             request.setHasWhitelist(whiteList != null);
 
+            Queue<Runnable> prQ = proposeRunnables[getIntId(request.getId())];
+            synchronized (prQ) {
+                prQ.forEach(intDispatcher::submit);
+                prQ.clear();
+            }
+
             FastProposeReply replyMsg = new FastProposeReply(view, request.getId(),
                     FastProposeReply.Status.ACK, predSet, request.getPosition());
             repliesChannel.sendMessage(replyMsg, sender);
         }
 
-        logger.exit();
+//        logger.exit();
     }
 
     private void sendFastProposeReject(RequestInfo reqInfo, int view, int sender, Request request) {
-        logger.entry(reqInfo, request, view, sender);
+//        logger.entry(reqInfo, request, view, sender);
 
         request.setStatus(RequestStatus.Rejected);
         reqInfo.setStatus(RequestStatus.Rejected);
@@ -338,46 +296,39 @@ public class Proposer {
         request.setHasWhitelist(false);
 
 
-        FastProposeReply replyMsg = new FastProposeReply(view, request.getId(), FastProposeReply.Status.NACK, predSet, position);
+        FastProposeReply replyMsg = new FastProposeReply(view, request.getId(),
+                FastProposeReply.Status.NACK, predSet, position);
         repliesChannel.sendMessage(replyMsg, sender);
 
-        logger.exit();
+//        logger.exit();
     }
 
     void onFastProposeReply(FastProposeReply msg, int sender) {
-        logger.entry(msg, sender);
+//        logger.entry(msg, sender);
 
         RequestId rId = msg.getRequestId();
         int id = getIntId(rId);
 
-//        long start = System.currentTimeMillis();
+        if (msg.getStatus() == FastProposeReply.Status.REPROPOSE) {
+            fastPropose(proposedReqs[id]);
+            return;
+        }
 
         FastProposeReplyInfo info = fpReplies[id];
 
-//        long duration = System.currentTimeMillis() - start;
-//
-//        fpgTotal += duration;
-//        fpgMax = Math.max(duration, fpgMax);
-//        fpgCount++;
-//        if(fpgCount % 5000 == 0) {
-//            System.out.println(String.format("FP Replies Get: Avg: %f; Max %d ", fpgTotal * 1.0 / fpgCount, fpgMax));
-//            fpgCount = 0;
-//            fpgTotal = 0;
-//        }
-
         // TODO: CHECK IF THIS AFFECTS CORRECTNESS
         if (info == null) {
-            if (logger.isTraceEnabled())
-                logger.trace("info is null for {}", rId);
-            logger.exit();
+//            if (logger.isTraceEnabled())
+//                logger.trace("info is null for {}", rId);
+//            logger.exit();
             return;
         }
 
         synchronized (info) {
             if (info.isDone()) {
-                if (logger.isTraceEnabled())
-                    logger.trace("Already decided {}; Info {}", rId, info);
-                logger.exit();
+//                if (logger.isTraceEnabled())
+//                    logger.trace("Already decided {}; Info {}", rId, info);
+//                logger.exit();
                 return;
             }
 
@@ -385,14 +336,15 @@ public class Proposer {
 
             if (!info.hasNack() && info.isFastQuorum()) {
 
-                if (logger.isDebugEnabled()) {
+//                if (logger.isDebugEnabled()) {
 //                    Set<RequestId> pred = request.getPred();
 //                    for (int i=0;i<rId.getSeqNumber();i++) {
 //                        RequestId findId = new RequestId(rId.getClientId(), i);
 //                        assert pred.contains(findId) : "Not found " + findId + " in " + rId + "Set " + pred;
 //                    }
 //                    assert pred.size() == rId.getSeqNumber() : request + " Pred Size " + pred.size();
-                }
+//                }
+//                logger.debug("Duration1: {}", System.currentTimeMillis() - proposedReqs[id].sentTime);
 
                 Request request = info.updateAndGetRequest();
 
@@ -401,7 +353,10 @@ public class Proposer {
                 Stable stableMsg = new Stable(msg.getView(), request);
                 stableChannel.sendToAll(stableMsg);
 
+
             } else if (info.hasNack() && info.isClassicQuorum()) {
+
+//                logger.debug("Duration2: {}", System.currentTimeMillis() - proposedReqs[id].sentTime);
 
                 Request request = info.updateAndGetRequest();
 
@@ -410,6 +365,9 @@ public class Proposer {
                 request.setPosition(tsGenerator.newTimestamp());
 
                 retryReplies[id] = new RetryReplyInfo(request, numReplicas);
+
+//                Stable stableMsg = new Stable(msg.getView(), request);
+//                stableChannel.sendToAll(stableMsg);
 
                 Retry retryMsg = new Retry(msg.getView(), request);
                 proposeChannel.sendToAll(retryMsg);
@@ -423,12 +381,12 @@ public class Proposer {
                                 fpTimeout, TimeUnit.MILLISECONDS)
                 );
 
-                logger.exit();
+//                logger.exit();
                 return;
 
             } else {
 
-                logger.exit();
+//                logger.exit();
                 return;
 
             }
@@ -441,11 +399,11 @@ public class Proposer {
             info.setDone();
         }
 
-        logger.exit();
+//        logger.exit();
     }
 
     private void sendSlowPropose(int view, Request request, FastProposeReplyInfo fastInfo) {
-        logger.entry(view, request, fastInfo);
+//        logger.entry(view, request, fastInfo);
 
         if (fastInfo != null) {
             synchronized (fastInfo) {
@@ -456,8 +414,8 @@ public class Proposer {
             }
         }
 
-        if (logger.isTraceEnabled())
-            logger.trace("Taking the slow phase for {}", request);
+//        if (logger.isTraceEnabled())
+//            logger.trace("Taking the slow phase for {}", request);
 
         SlowPropose proposeMsg = new SlowPropose(view, request);
 
@@ -466,11 +424,11 @@ public class Proposer {
 
         proposeChannel.sendToAll(proposeMsg);
 
-        logger.exit();
+//        logger.exit();
     }
 
     void onSlowPropose(SlowPropose msg, int sender) {
-        logger.entry(msg, sender);
+//        logger.entry(msg, sender);
 
         int view = msg.getView();
 
@@ -478,10 +436,8 @@ public class Proposer {
         RequestId rId = msgRequest.getId();
         int id = getIntId(rId);
 
-        RequestInfo reqInfo = reqInfos[id];
-//                k -> new RequestInfo(rId, view, RequestStatus.PreSlowPending));
-
-        synchronized (reqInfo) {
+        synchronized (reqInfos[id]) {
+            RequestInfo reqInfo = reqInfos[id];
 
             if (reqInfo.getId() == null) {
                 reqInfo.init(rId, view, RequestStatus.PreSlowPending);
@@ -489,10 +445,10 @@ public class Proposer {
 
             if ((reqInfo.getView() > view) || (reqInfo.getView() == view
                     && reqInfo.getStatusOrdinal() > RequestStatus.PreSlowPending.ordinal())) {
-                if (logger.isDebugEnabled())
-                    logger.debug(ON_PROPOSE, "Disregarding {} {}", msg, reqInfo);
+//                if (logger.isDebugEnabled())
+//                    logger.debug(ON_PROPOSE, "Disregarding {} {}", msg, reqInfo);
 
-                logger.exit();
+//                logger.exit();
                 return;
             }
 
@@ -510,9 +466,9 @@ public class Proposer {
 
             if (rejected) {
 
-                if (logger.isDebugEnabled()) {
-                    logger.debug(ON_PROPOSE, "Rejected: {}; Wait Set: {}", request, waitReqs);
-                }
+//                if (logger.isDebugEnabled()) {
+//                    logger.debug(ON_PROPOSE, "Rejected: {}; Wait Set: {}", request, waitReqs);
+//                }
 
                 sendSlowProposeReject(reqInfo, request, view, sender);
             } else {
@@ -520,18 +476,18 @@ public class Proposer {
             }
         }
 
-        logger.exit();
+//        logger.exit();
     }
 
     private void slowProposeResume(RequestInfo reqInfo, Request request, int view, int sender,
                                    SortedSet<Request> waitReqs, int startIdx) {
-        logger.entry(request, sender, waitReqs, startIdx);
+//        logger.entry(request, sender, waitReqs, startIdx);
 
         synchronized (reqInfo) {
 
             if ((reqInfo.getView() > view) || (reqInfo.getView() == view
                     && reqInfo.getStatusOrdinal() > RequestStatus.SlowPending.ordinal())) {
-                logger.exit();
+//                logger.exit();
                 return;
             }
 
@@ -547,21 +503,21 @@ public class Proposer {
                         if (req.getStatus() != RequestStatus.Stable &&
                                 req.getStatus() != RequestStatus.Accepted) {
 
-                            if (logger.isDebugEnabled()) {
-                                logger.debug("{} is going to wait for {}; WaitReqs {}", request,
-                                        req, waitReqs);
-                            }
+//                            if (logger.isDebugEnabled()) {
+//                                logger.debug("{} is going to wait for {}; WaitReqs {}", request,
+//                                        req, waitReqs);
+//                            }
                             prQ.add(new OnSlowProposeRunner(reqInfo, request, view, sender, waitReqs, index));
-                            logger.exit();
+//                            logger.exit();
                             return;
 
                         } else if (!req.getPred().contains(request.getId())) {
 
-                            if (logger.isTraceEnabled())
-                                logger.trace("{} does not contain {}", req, request);
+//                            if (logger.isTraceEnabled())
+//                                logger.trace("{} does not contain {}", req, request);
 
                             sendSlowProposeReject(reqInfo, request, view, sender);
-                            logger.exit();
+//                            logger.exit();
                             return;
 
                         }
@@ -579,11 +535,11 @@ public class Proposer {
             repliesChannel.sendMessage(replyMsg, sender);
         }
 
-        logger.exit();
+//        logger.exit();
     }
 
     private void sendSlowProposeReject(RequestInfo reqInfo, Request request, int view, int sender) {
-        logger.entry(request, view, sender);
+//        logger.entry(request, view, sender);
 
         reqInfo.setStatus(RequestStatus.Rejected);
         request.setStatus(RequestStatus.Rejected);
@@ -596,11 +552,11 @@ public class Proposer {
         SlowProposeReply replyMsg = new SlowProposeReply(view, request.getId(), SlowProposeReply.Status.NACK, predSet, position);
         repliesChannel.sendMessage(replyMsg, sender);
 
-        logger.exit();
+//        logger.exit();
     }
 
     void onSlowProposeReply(SlowProposeReply msg, int sender) {
-        logger.entry(msg, sender);
+//        logger.entry(msg, sender);
 
         RequestId rId = msg.getRequestId();
         int id = getIntId(rId);
@@ -647,7 +603,7 @@ public class Proposer {
 
             } else {
 
-                logger.exit();
+//                logger.exit();
                 return;
 
             }
@@ -655,11 +611,13 @@ public class Proposer {
             info.setDone();
         }
 
-        logger.exit();
+//        logger.exit();
     }
 
     void onRetry(Retry msg, int sender) {
-        logger.entry(msg, sender);
+//        logger.entry(msg, sender);
+
+//        long start = System.currentTimeMillis();
 
         Request msgRequest = msg.getRequest();
         RequestId rId = msgRequest.getId();
@@ -668,7 +626,6 @@ public class Proposer {
         int view = msg.getView();
 
         RequestInfo reqInfo = reqInfos[id];
-//                k -> new RequestInfo(rId, view, RequestStatus.PreAccepted));
 
         synchronized (reqInfo) {
 
@@ -678,7 +635,7 @@ public class Proposer {
 
             if ((reqInfo.getView() > view) || (reqInfo.getView() == view
                     && reqInfo.getStatusOrdinal() > RequestStatus.PreAccepted.ordinal())) {
-                logger.exit();
+//                logger.exit();
                 return;
             }
 
@@ -697,17 +654,19 @@ public class Proposer {
 
             synchronized (prQ) {
                 prQ.forEach(intDispatcher::submit);
-//                proposeRunnables.remove(prQ);
+                prQ.clear();
             }
 
             RetryReply replyMsg = new RetryReply(view, rId, predSet);
             repliesChannel.sendMessage(replyMsg, sender);
+
+//            request.onRetryDuration = (int) (System.currentTimeMillis() - start);
         }
-        logger.exit();
+//        logger.exit();
     }
 
     void onRetryReply(RetryReply msg, int sender) {
-        logger.entry(msg, sender);
+//        logger.entry(msg, sender);
 
         RetryReplyInfo info = retryReplies[getIntId(msg.getRequestId())];
 
@@ -715,24 +674,24 @@ public class Proposer {
             info.addReply(msg, sender);
 
             if (!info.isClassicQuorum() || info.isDone()) {
-                logger.exit();
+//                logger.exit();
                 return;
             }
 
             RequestStats.getInstance().retryCount.getAndIncrement();
             info.setDone();
-            if (logger.isTraceEnabled()) {
-                logger.trace("sending stable for {}", info);
-            }
+//            if (logger.isTraceEnabled()) {
+//                logger.trace("sending stable for {}", info);
+//            }
             Stable stableMsg = new Stable(msg.getView(), info.updateAndGetRequest());
             stableChannel.sendToAll(stableMsg);
         }
 
-        logger.exit();
+//        logger.exit();
     }
 
     void onStable(Stable msg, int sender) {
-        logger.entry(msg, sender);
+//        logger.entry(msg, sender);
 
         Request msgRequest = msg.getRequest();
         RequestId rId = msgRequest.getId();
@@ -750,127 +709,159 @@ public class Proposer {
 
             if ((reqInfo.getView() > view) || (reqInfo.getView() == view
                     && reqInfo.getStatusOrdinal() > RequestStatus.PreStable.ordinal())) {
-                logger.exit();
+//                logger.exit();
                 return;
             }
 
-            if (logger.isDebugEnabled())
-                logger.debug(STABLE, "ReqInfo: {}", reqInfo);
+//            if (logger.isDebugEnabled())
+//                logger.debug(STABLE, "ReqInfo: {}", reqInfo);
 
             Request request = conflictDetector.updateRequest(msgRequest);
-//            Set<RequestId> pred = msgRequest.getPred();
-//            for (int i=0;i<rId.getSeqNumber();i++) {
-//                RequestId findId = new RequestId(rId.getClientId(), i);
-//                assert pred.contains(findId) : "Not found " + findId + " in " + rId + "Set " + pred;
-//            }
-            reqInfo.setStatus(RequestStatus.Stable);
-            request.setStatus(RequestStatus.Stable);
-            request.setHasWhitelist(false);
 
             Queue<Runnable> prQ = proposeRunnables[id];
-//                    k -> new ConcurrentLinkedQueue<>());
 
             synchronized (prQ) {
+                reqInfo.setStatus(RequestStatus.Stable);
+                request.setStatus(RequestStatus.Stable);
+                request.setHasWhitelist(false);
+
+//                if(logger.isDebugEnabled()) {
+//                    logger.debug("Stable: {} ({})", request.getId(), request.getPosition());
+//                }
+
                 prQ.forEach(intDispatcher::submit);
-//                proposeRunnables.remove(prQ);
+                prQ.clear();
             }
 
             deliver(request);
-//            caesar.deliver(request, null);
+//            caesar.deliver(request);
         }
 
-        logger.exit();
+//        logger.exit();
     }
 
     private void deliver(Request request) {
-        logger.entry(request);
+//        logger.entry(request);
 
-        Set<RequestId> predSet = request.getPred();
 
-        Queue<Runnable> postDelQ = deliverRunnables[getIntId(request.getId())];
+        deliverResume(request, 0);
 
-        // TODO: There is a problem here if "id" is not present in conflictDetector.
-        // Next step fixes this...
-        predSet.removeIf(id -> {
-            Request predReq = conflictDetector.getRequest(id);
-            return predReq != null &&
-                    (predReq.getStatus() == RequestStatus.Delivered
-                            || predReq.getStatus() == RequestStatus.Stable)
-                    && predReq.getPosition() > request.getPosition();
-        });
+        ConcurrentMap<RequestId, Runnable> postDelQ = deliverRunnables[getIntId(request.getId())];
+        synchronized (postDelQ) {
+//            if (logger.isDebugEnabled()) {
+//                logger.debug("Releasing1 reqs waiting on {}: {}", request, postDelQ);
+//            }
+            postDelQ.forEach((predReq, predRunnable) -> intDispatcher.submit(predRunnable));
+            postDelQ.clear();
+        }
 
-//        predSet.parallelStream()
-//                .map(conflictDetector::getRequest)
-//                .filter(predReq -> predReq != null
-//                        && predReq.getStatus().ordinal() >= RequestStatus.Stable.ordinal()
-//                        && predReq.getPosition() < request.getPosition())
-//                .forEach(predReq -> predReq.getPred().remove(request.getIntId()));
+//        // TODO: There is a problem here if "id" is not present in conflictDetector.
+//        // Next step fixes this...
 
-        deliverResume(request, postDelQ, 0);
-        logger.exit();
+//        ConcurrentMap<RequestId, Runnable> postDelQ = deliverRunnables[getIntId(request.getId())];
+
+//        request.getPred().removeIf(id -> {
+//            Request predReq = conflictDetector.getRequest(id);
+//            boolean remove = predReq != null
+//                    && predReq.getStatus().ordinal() >= RequestStatus.Stable.ordinal()
+//                    && predReq.getPosition() > request.getPosition();
+//            if(remove) {
+//                Runnable predRunnable = postDelQ.remove(id);
+//                if (predRunnable != null) {
+//                    intDispatcher.submit(predRunnable);
+//                }
+//            }
+//            return remove;
+//        });
+
+//        logger.exit();
     }
 
     //TODO: CHECK THE CORRECTNESS HERE. BreakLoop P1 is not here. FIXED I THINK NOW
-    private void deliverResume(Request request, Queue<Runnable> postDelQ, int startIdx) {
-        logger.entry(request, postDelQ, startIdx);
+    private void deliverResume(Request request, int startIdx) {
+//        logger.entry(request, startIdx);
 
         int index = 0;
         Set<RequestId> predSet = request.getPred();
-//        assert predSet.size() == 0 : "Ops! Pred Set not empty for " + request;
+        ConcurrentMap<RequestId, Runnable> postDelQ = deliverRunnables[getIntId(request.getId())];
 
         for (RequestId predId : predSet) {
             if (index >= startIdx) {
                 Request predReq = conflictDetector.getRequest(predId);
 
-                Queue<Runnable> queue = deliverRunnables[getIntId(predId)];
+                ConcurrentMap<RequestId, Runnable> queue = deliverRunnables[getIntId(predId)];
 
                 synchronized (queue) {
-                    if (predReq != null && predReq.getPosition() < request.getPosition()
-                            && predReq.getStatus().ordinal() >= RequestStatus.Stable.ordinal()) {
-                        if (predReq.getPred().remove(request.getId())) {
-                            queue.forEach(intDispatcher::submit);
-                            queue.clear();
-                        }
-                        continue;
-                    }
-                    if (predReq == null || predReq.getStatus() != RequestStatus.Delivered) {
+                    if (predReq == null || predReq.getStatus().ordinal() < RequestStatus.Stable.ordinal()) {
 
-                        queue.add(new OnDeliverRunner(request, postDelQ, index));
-                        logger.debug("DeliverResume: {} going to sleep for {}", request, predReq);
-                        logger.exit();
+                        queue.put(request.getId(), new OnDeliverRunner(request, index));
+                        if (logger.isDebugEnabled()) {
+                            logger.debug("DeliverSleep1: {} going to sleep for {}; {}", request, predId, predReq);
+                        }
                         return;
 
+                    } else if (predReq.getPosition() < request.getPosition()) {
+
+                        if (predReq.getPred().contains(request.getId())) {
+                            Runnable predRunnable = postDelQ.remove(predId);
+                            if (predRunnable != null) {
+                                intDispatcher.submit(predRunnable);
+                            }
+                        }
+
+                        if (predReq.getStatus().ordinal() != RequestStatus.Delivered.ordinal()) {
+
+                            queue.put(request.getId(), new OnDeliverRunner(request, index));
+                            if (logger.isDebugEnabled()) {
+                                logger.debug("DeliverResume2: {} going to sleep for {}", request, predReq);
+                            }
+                            return;
+
+                        }
+
+                    } else if (predReq.getPosition() > request.getPosition()) {
+
+                        index++;
+                        continue;
+
+                    } else {
+                        logger.fatal("SHOULD NOT BE HERE {}", request);
                     }
+
                 }
             }
             index++;
         }
 
+        caesar.deliver(request);
+
+//        logger.exit();
+    }
+
+    void onDelivery(Request request) {
+//        logger.entry(request);
+        request.setStatus(RequestStatus.Delivered);
+
+        ConcurrentMap<RequestId, Runnable> postDelQ = deliverRunnables[getIntId(request.getId())];
+
+        synchronized (postDelQ) {
+//            if (logger.isDebugEnabled()) {
+//                logger.debug("Releasing2 reqs waiting on {}: {}", request, postDelQ);
+//            }
+            postDelQ.forEach((predReq, predRunnable) -> intDispatcher.submit(predRunnable));
+            postDelQ.clear();
+        }
+
         if (logger.isDebugEnabled()) {
             logger.debug("Delivered {}", request);
         }
-        caesar.deliver(request, postDelQ);
-
-        logger.exit();
-    }
-
-    void onDelivery(Request request, Queue<Runnable> postDelQ) {
-        logger.entry(request, postDelQ);
-        request.setStatus(RequestStatus.Delivered);
-
-        assert postDelQ != null : "Delivery queue null for " + request;
-
-        synchronized (postDelQ) {
-            postDelQ.forEach(intDispatcher::submit);
-            postDelQ.clear();
-        }
-        logger.exit();
+//        logger.exit();
     }
 
     void startRecovery(int nodeId) {
-        logger.entry(nodeId);
-        if (logger.isFatalEnabled())
-            logger.fatal(RECOVERY, "Trying to recovery {}", nodeId);
+//        logger.entry(nodeId);
+//        if (logger.isFatalEnabled())
+//            logger.fatal(RECOVERY, "Trying to recovery {}", nodeId);
 
         int numReplicas = ProcessDescriptor.getInstance().numReplicas;
 
@@ -891,11 +882,11 @@ public class Proposer {
 //            }
 //        });
 
-        logger.exit();
+//        logger.exit();
     }
 
     private void recover(RequestInfo rInfo) {
-        logger.entry(rInfo);
+//        logger.entry(rInfo);
         RequestId rId = rInfo.getId();
 
 
@@ -909,13 +900,13 @@ public class Proposer {
             otherChannel.sendToAll(recoverMsg);
         }
 
-        logger.exit();
+//        logger.exit();
     }
 
     void onRecovery(Recovery msg, int sender) {
-        logger.entry(msg, sender);
-        if (logger.isFatalEnabled())
-            logger.fatal(RECOVERY, "Received onRecovery {} from {}", msg, sender);
+//        logger.entry(msg, sender);
+//        if (logger.isFatalEnabled())
+//            logger.fatal(RECOVERY, "Received onRecovery {} from {}", msg, sender);
 
         RequestStats.getInstance().recoverCount.getAndIncrement();
 
@@ -932,28 +923,28 @@ public class Proposer {
             }
 
             if (reqInfo.getView() > view) {
-                if (logger.isFatalEnabled())
-                    logger.fatal(RECOVERY, "Returning {}; {}", view, reqInfo);
-                logger.exit();
+//                if (logger.isFatalEnabled())
+//                    logger.fatal(RECOVERY, "Returning {}; {}", view, reqInfo);
+//                logger.exit();
                 return;
             }
 
             Request request = conflictDetector.getRequest(rId);
 
-            if (logger.isFatalEnabled())
-                logger.fatal(RECOVERY, "OnRecovery for {}", request);
+//            if (logger.isFatalEnabled())
+//                logger.fatal(RECOVERY, "OnRecovery for {}", request);
 
             RecoveryReply replyMsg = new RecoveryReply(view, rId, request);
             otherChannel.sendMessage(replyMsg, sender);
         }
 
-        logger.exit();
+//        logger.exit();
     }
 
     void onRecoveryReply(RecoveryReply msg, int sender) {
-        logger.entry(msg, sender);
-        if (logger.isFatalEnabled())
-            logger.fatal(RECOVERY, "Recovering {} from {}", msg, sender);
+//        logger.entry(msg, sender);
+//        if (logger.isFatalEnabled())
+//            logger.fatal(RECOVERY, "Recovering {} from {}", msg, sender);
 
         RecoveryReply reply;
 
@@ -971,9 +962,9 @@ public class Proposer {
             if (info.isClassicQuorum() && !info.isDone()) {
                 info.setDone();
 
-                if (logger.isFatalEnabled()) {
-                    logger.fatal(RECOVERY, "Info for {}: {}", rId, info);
-                }
+//                if (logger.isFatalEnabled()) {
+//                    logger.fatal(RECOVERY, "Info for {}: {}", rId, info);
+//                }
 
                 reply = info.getReplyWithStatus(RequestStatus.Stable, false);
                 if (reply == null)
@@ -987,7 +978,7 @@ public class Proposer {
 //                    logger.fatal(RECOVERY, "Sending {}", stableMsg);
                     stableChannel.sendToAll(stableMsg);
 
-                    logger.exit();
+//                    logger.exit();
                     return;
                 }
 
@@ -1003,7 +994,7 @@ public class Proposer {
 //                    logger.fatal(RECOVERY, "Sending {}", retryMsg);
                     proposeChannel.sendToAll(retryMsg);
 
-                    logger.exit();
+//                    logger.exit();
                     return;
                 }
 
@@ -1018,7 +1009,7 @@ public class Proposer {
 //                    logger.fatal(RECOVERY, "Sending fast propose {} {} {}", view, newReq, whiteList);
                     sendFastPropose(view, newReq, whiteList);
 
-                    logger.exit();
+//                    logger.exit();
                     return;
                 }
 
@@ -1031,7 +1022,7 @@ public class Proposer {
 //                    logger.fatal(RECOVERY, "Sending slow propose {} {}", view, newReq);
                     sendSlowPropose(view, newReq, null);
 
-                    logger.exit();
+//                    logger.exit();
                     return;
                 }
 
@@ -1079,7 +1070,7 @@ public class Proposer {
             }
         }
 
-        logger.exit();
+//        logger.exit();
     }
 
     private class OnFastProposeRunner implements Runnable {
@@ -1104,7 +1095,7 @@ public class Proposer {
 
         @Override
         public void run() {
-            logger.trace("Calling fastProposeResume for {} and waitReq {}", request, waitReqs);
+//            logger.trace("Calling fastProposeResume for {} and waitReq {}", request, waitReqs);
             fastProposeResume(info, request, view, sender, whiteList, waitReqs, index);
         }
     }
@@ -1129,7 +1120,7 @@ public class Proposer {
 
         @Override
         public void run() {
-            logger.trace("Calling slowProposeResume for {} and waitReq {}", request, waitReqs);
+//            logger.trace("Calling slowProposeResume for {} and waitReq {}", request, waitReqs);
             slowProposeResume(info, request, view, sender, waitReqs, index);
         }
     }
@@ -1138,18 +1129,24 @@ public class Proposer {
 
         private final Request request;
         private final int index;
-        private final Queue<Runnable> postDelQ;
 
-        public OnDeliverRunner(Request request, Queue<Runnable> postDelQ, int index) {
+        public OnDeliverRunner(Request request, int index) {
             this.request = request;
-            this.postDelQ = postDelQ;
             this.index = index;
         }
 
         @Override
         public void run() {
-            logger.debug("Delivery: {} {} {}", request, postDelQ, index);
-            deliverResume(request, postDelQ, index);
+//            logger.debug("Delivery: {} {}", request, index);
+            deliverResume(request, index);
+        }
+
+        @Override
+        public String toString() {
+            return "OnDeliverRunner{" +
+                    "request=" + request +
+                    ", index=" + index +
+                    '}';
         }
     }
 

@@ -5,22 +5,20 @@
             <ThresholdFilter level="FATAL"/>
             <PatternLayout pattern="%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} %M - %msg%n"/>
         </Console>
-        <File name="File" fileName="${sys:id}.log" append="false">
-            <Filters>
-                <MarkerFilter marker="ON_RECOVERY" onMatch="ACCEPT" onMismatch="DENY"/>
-            </Filters>
+        <File name="FileAll" fileName="${sys:id}.log" append="false">
             <PatternLayout pattern="%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} %M - %msg%n"/>
         </File>
-        <File name="File" fileName="${sys:id}-fatal.log" append="false">
-            <Filters>
-                <MarkerFilter marker="ClientManager" onMatch="ACCEPT" onMismatch="DENY"/>
-            </Filters>
+        <File name="FileFatal" fileName="${sys:id}-fatal.log" append="false">
+            <ThresholdFilter level="FATAL"/>
             <PatternLayout pattern="%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} %M - %msg%n"/>
         </File>
+        <Async name="Async">
+            <AppenderRef ref="FileAll"/>
+        </Async>
     </Appenders>
     <Loggers>
-        <Root level="FATAL">
-            <AppenderRef ref="File"/>
+        <Root level="Fatal">
+            <AppenderRef ref="Async"/>
             <AppenderRef ref="Console"/>
         </Root>
     </Loggers>

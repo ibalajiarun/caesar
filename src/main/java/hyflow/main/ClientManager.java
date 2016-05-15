@@ -5,6 +5,7 @@ import hyflow.caesar.Caesar;
 import hyflow.caesar.replica.Replica;
 import hyflow.caesar.statistics.RequestStats;
 import hyflow.common.*;
+import org.apache.commons.math3.stat.descriptive.SummaryStatistics;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.Marker;
@@ -30,8 +31,10 @@ public class ClientManager implements Client {
     private static final Marker marker = MarkerManager.getMarker("ClientManager");
 
     private final Semaphore finishedLock = new Semaphore(1);
+    private final int localId;
+    private int replicaId;
     private final AbstractService service;
-    private final Replica replica;
+
     private final Caesar caesar;
     private final int numReplicas;
     private final IdGenerator idGenerator;
@@ -46,15 +49,16 @@ public class ClientManager implements Client {
     private int lastRequestCount;
     private int barrierCount;
 
-    ClientManager(int replicaId, AbstractService service, Replica replica, Caesar caesar) throws IOException {
+    public ClientManager(int replicaId, AbstractService service, Caesar caesar) throws IOException {
+        this.replicaId = replicaId;
         this.service = service;
-        this.replica = replica;
         this.caesar = caesar;
+        this.localId = replicaId;
 
         this.numReplicas = ProcessDescriptor.getInstance().numReplicas;
         this.idGenerator = new SimpleIdGenerator(replicaId, numReplicas);
 
-        this.requestMap = new ConcurrentHashMap<>();
+        this.requestMap = new ConcurrentHashMap<>(10000);
 
         new MonitorThread().start();
     }
@@ -123,9 +127,7 @@ public class ClientManager implements Client {
 
             try {
                 execute(clientCount, requests, conflictPercent, writePercent, batchSize);
-            } catch (IOException e) {
-                e.printStackTrace();
-            } catch (InterruptedException e) {
+            } catch (IOException | InterruptedException e) {
                 e.printStackTrace();
             }
         }
@@ -149,6 +151,8 @@ public class ClientManager implements Client {
         RequestStats.getInstance().printAndResetStats();
 
         printUsage();
+
+        conflictCount = 0;
 
         finishedLock.release();
     }
@@ -176,13 +180,24 @@ public class ClientManager implements Client {
         }
     }
 
+    int conflictCount = 0;
+
     @Override
     public void notifyClient(Request request) {
-        Request req = requestMap.get(request.getId());
+        Request req = requestMap.remove(request.getId());
+//        if(logger.isDebugEnabled() && req.getObjectIds()[0] == 0) {
+//            logger.debug("ReqTime: {} PD: {} RD {}", request.getId(), request.onProposeDuration, request.onRetryDuration);
+//        }
         if (req != null) {
+
             RequestId rId = req.getId();
             reqDoneCount.incrementAndGet();
             req.setStatus(RequestStatus.Delivered);
+
+            if (req.getObjectIds()[0] == 0) {
+                conflictCount++;
+            }
+
             synchronized (rId) {
                 rId.notifyAll();
             }
@@ -209,6 +224,7 @@ public class ClientManager implements Client {
                 }
 
                 System.out.println("Throughput: " + count * 1000.0 / interval);
+                System.out.println("Conflict: " + conflictCount);
                 prevCount = count;
 
             }
@@ -228,14 +244,14 @@ public class ClientManager implements Client {
 
         ClientThread(int clientId) throws IOException {
             this.clientId = clientId;
-            this.random = new Random();
+            this.random = new Random(replicaId * clientId);
             this.sends = new ArrayBlockingQueue<>(128);
         }
 
         @Override
         public void run() {
             try {
-                int sequenceNum = 0;
+                IdGenerator seqGen;
 
                 Integer count;
                 boolean read, conflict;
@@ -245,7 +261,7 @@ public class ClientManager implements Client {
                 while (true) {
                     count = sends.take();
                     requests = new Vector<>();
-                    sequenceNum = 0;
+                    seqGen = new SimpleIdGenerator(clientId, clientCount);
 
                     long start = System.currentTimeMillis();
 
@@ -262,16 +278,16 @@ public class ClientManager implements Client {
                             accessMode = 2;
                         }
 
-                        request = service.createRequest(new RequestId(clientId, sequenceNum++),
+                        request = service.createRequest(new RequestId(localId, seqGen.next()),
                                 read, accessMode, batchSize, clientCount * numReplicas);
 
                         RequestId requestId = request.getId();
                         requestMap.put(requestId, request);
                         requests.add(request);
 
-                        replica.submit(request);
+                        caesar.propose(request);
 
-                        if (sequenceNum % 10 == 0) {
+                        if (i % 100 == 0) {
                             Thread.sleep(ProcessDescriptor.getInstance().proposerSleep);
                         }
 
@@ -289,7 +305,7 @@ public class ClientManager implements Client {
                                 times++;
                                 if (times % 10 == 0) {
                                     if (logger.isInfoEnabled())
-                                        logger.info(marker, "Too long " + request);
+                                        logger.info(marker, "Too long {};", request);
                                 }
                             }
                             assert request.getStatus() == RequestStatus.Delivered : "Not Delivered " + request;

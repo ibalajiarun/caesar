@@ -68,7 +68,7 @@ public class FastProposeReplyInfo {
         predSet.addAll(msg.getPred());
         if (!nack)
             nack = (msg.getStatus() == FastProposeReply.Status.NACK);
-        position = msg.position() > position ? msg.position() : position;
+        position = Math.max(msg.position(), position);
     }
 
     public boolean isFastQuorum() {

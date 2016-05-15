@@ -29,8 +29,8 @@ import java.util.concurrent.BlockingQueue;
  * @see TcpNetwork
  */
 public class TcpConnection {
-    //    public static final int TCP_BUFFER_SIZE = 4* 1024 * 1024;
-    private final static Logger logger = LogManager.getLogger(TcpConnection.class.getCanonicalName());
+    //    public static final int TCP_BUFFER_SIZE = 1024 * 1024 * 20;
+    private final static Logger logger = LogManager.getLogger(TcpConnection.class);
     private final PID replica;
     /** true if connection should be started by this replica; */
     private final boolean active;
@@ -38,7 +38,7 @@ public class TcpConnection {
     private final TcpNetwork network;
     private final Thread senderThread;
     private final Thread receiverThread;
-    private final BlockingQueue<byte[]> sendQueue = new ArrayBlockingQueue<byte[]>(200000);
+    private final BlockingQueue<byte[]> sendQueue = new ArrayBlockingQueue<>(1000000);
     private Socket socket;
     private DataInputStream input;
     private OutputStream output;
@@ -84,37 +84,22 @@ public class TcpConnection {
      */
     public boolean send(byte[] message) {
         try {
-            //            boolean queueFull = false;
-            //            if (sendQueue.remainingCapacity() < 2) {
-            //                logger.warning("Send queue remaining: " + sendQueue.remainingCapacity() + " to replica: " + senderThread.getName());
-            //                queueFull = true;
-            //            }
-            //            sendQueue.put(message);
+
             if (connected)  {
-                //            boolean enqueued = sendQueue.offer(message);
-                long start = System.currentTimeMillis();
+//                long start = System.currentTimeMillis();
                 sendQueue.put(message);
-                int delta = (int) (System.currentTimeMillis() - start);
-                if (delta > 10) {
-                    logger.warn("Wait time: " + delta);
-                }
-//                boolean enqueued = sendQueue.offer(message, 10, TimeUnit.MILLISECONDS);
-//                if (!enqueued) {
-//                    if (droppedFull % 16 == 0) {
-//                        logger.warning("Dropping message, send queue full. To: " + replica.getId() + ". " + droppedFull);
-//                    }
-//                    droppedFull++;
+//                int delta = (int) (System.currentTimeMillis() - start);
+//                if (delta > 10) {
+//                    logger.warn("Wait time: " + delta);
 //                }
+//
             } else {
                 if (dropped % 1024 == 0) {
                     logger.fatal("Dropping message, not connected. To: " + replica.getId() + ". " + dropped);
                 }
                 dropped++;
             }
-            //            sendQueue.put((message);
-            //            if (queueFull) {
-            //                logger.warning("Enqueued");
-            //            }
+
         } catch (InterruptedException e) {
             logger.warn("Thread interrupted. Terminating.");
             Thread.currentThread().interrupt();
@@ -197,9 +182,6 @@ public class TcpConnection {
 
                     input = new DataInputStream(
                             new BufferedInputStream(socket.getInputStream()));
-//                    output = new DataOutputStream(
-//                            new BufferedOutputStream(socket.getOutputStream()));
-//                    output.writeInt(ProcessDescriptor.getInstance().localId);
 
                     output = socket.getOutputStream();
                     int v = ProcessDescriptor.getInstance().localId;
@@ -260,18 +242,19 @@ public class TcpConnection {
         }
     }
 
-    final class Sender implements Runnable {
+    private final class Sender implements Runnable {
         public void run() {
             logger.info("Sender thread started.");
             try {
-                int count = 0;
                 while (!Thread.interrupted()) {
-//                    if (logger.isLoggable(Level.FINE)) {
-//                    if (sendQueue.size() > 64) {
-//                        logger.warning("Queue size: " + sendQueue.size());
-//                    }
-//                    }
+
+//                    long start = System.currentTimeMillis();
                     byte[] msg = sendQueue.take();
+//                    int delta = (int) (System.currentTimeMillis() - start);
+//                    if (delta > 10) {
+//                        logger.warn("Take Wait time: " + delta);
+//                    }
+
                     // ignore message if not connected
                     // Works without memory barrier because connected is volatile
                     if (!connected) {
@@ -280,10 +263,7 @@ public class TcpConnection {
 
                     try {
                         output.write(msg);
-//                        count++;
-//                        if(count % 100 == 0) {
                         output.flush();
-//                        }
                     } catch (IOException e) {
                         logger.warn("Error sending message", e);
                         close();
@@ -298,7 +278,7 @@ public class TcpConnection {
     /**
      * Main loop used to connect and read from the socket.
      */
-    final class ReceiverThread implements Runnable {
+    private final class ReceiverThread implements Runnable {
         public void run() {
             while (true) {
                 // wait until connection is established
@@ -312,8 +292,6 @@ public class TcpConnection {
                 }
                 logger.info("Tcp connected " + replica.getId());
 
-                long start, time, sumTime = 0, maxTime = 0;
-                double count = 0;
                 while (true) {
                     if (Thread.interrupted()) {
                         logger.fatal("Receiver thread has been interrupted.");
@@ -323,23 +301,13 @@ public class TcpConnection {
 
                     try {
                         Message message = MessageFactory.create(input);
-                        if (logger.isTraceEnabled()) {
-                            logger.trace("Received [" + replica.getId() + "] " + message +
-                                    " size: " + message.byteSize());
-                        }
-//                        start = System.currentTimeMillis();
+//                        if (logger.isTraceEnabled()) {
+//                            logger.trace("Received [" + replica.getId() + "] " + message +
+//                                    " size: " + message.byteSize());
+//                        }
 
                         network.fireReceiveMessage(message, replica.getId());
 
-//                        time = System.currentTimeMillis() - start;
-//                        sumTime += time;
-//                        maxTime = Math.max(sumTime, maxTime);
-//                        count++;
-//                        if(count % 5000 == 0) {
-//                            System.out.println("NETWORK: MAX: " + maxTime + "AVG: " + sumTime/count);
-//                            sumTime = 0;
-//                            count = 0;
-//                        }
                     } catch (Exception e) {
                         // end of stream or problem with socket occurred so
                         // close connection and try to establish it again

@@ -11,7 +11,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
-import java.util.Queue;
 
 public class Replica {
 
@@ -42,10 +41,10 @@ public class Replica {
     private class InnerDecideCallback implements DecideCallback {
 
         @Override
-        public void deliver(final Request request, final Queue<Runnable> deliverQ) {
+        public void deliver(final Request request) {
             deliverDispatcher.execute(() -> {
                 service.executeRequest(request);
-                caesar.onDelivery(request, deliverQ);
+                caesar.onDelivery(request);
                 client.notifyClient(request);
             });
         }

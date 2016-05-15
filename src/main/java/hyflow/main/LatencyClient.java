@@ -34,13 +34,15 @@ public class LatencyClient implements Client {
     private Vector<ClientThread> clients = new Vector<>();
     private AtomicInteger runningClients = new AtomicInteger(0);
 
+    private AtomicInteger reqDoneCount = new AtomicInteger(0);
+    private MonitorThread monitorThread;
+
     public LatencyClient(int replicaId, AbstractService service, Caesar caesar) throws IOException {
         this.service = service;
         this.caesar = caesar;
 
         this.numReplicas = ProcessDescriptor.getInstance().numReplicas;
-        this.localId = ProcessDescriptor.getInstance().localId;
-//        this.idGenerator = new SimpleIdGenerator(replicaId, numReplicas);
+        this.localId = replicaId;
 
         this.requestMap = new ConcurrentHashMap<>();
 
@@ -83,11 +85,11 @@ public class LatencyClient implements Client {
         int writePercent = Integer.parseInt(configuration.getProperty("WritePercent"));
         int batchSize = Integer.parseInt(configuration.getProperty("BatchSize"));
 
-        for (int i = 0; i < clients.length; i++) {
-            for (int j = 0; j < conflicts.length; j++) {
-                for (int k = 0; k < requests.length; k++) {
+        for (int client : clients) {
+            for (int conflict : conflicts) {
+                for (int request : requests) {
                     try {
-                        execute(clients[i], requests[k], conflicts[j], writePercent, batchSize);
+                        execute(client, request, conflict, writePercent, batchSize);
                     } catch (Exception e) {
                         e.printStackTrace();
                         System.exit(-1);
@@ -116,9 +118,15 @@ public class LatencyClient implements Client {
 
     private void finished() {
         System.out.println("Finished");
-        gc();
+        monitorThread.setDone();
         try {
             Thread.sleep(2000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        gc();
+        try {
+            Thread.sleep(4000);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
@@ -130,6 +138,8 @@ public class LatencyClient implements Client {
             throws IOException, InterruptedException {
 
         finishedLock.acquire();
+
+        monitorThread = new MonitorThread("latlogs/tps-C" + conflictPercent + "-R" + requests + ".log");
 
         System.out.println(String.format("Executing %d %d %d %d %d", clientCount, requests, conflictPercent, writePercent, batchSize));
 
@@ -144,6 +154,8 @@ public class LatencyClient implements Client {
         for (int i = 0; i < clientCount; i++) {
             clients.get(i).execute(clientCount, requests, conflictPercent, writePercent, batchSize);
         }
+
+        monitorThread.start();
     }
 
     @Override
@@ -151,10 +163,62 @@ public class LatencyClient implements Client {
         Request req = requestMap.get(request.getId());
         if (req != null) {
             RequestId rId = req.getId();
+            reqDoneCount.incrementAndGet();
             synchronized (rId) {
                 req.setStatus(RequestStatus.Delivered);
                 rId.notifyAll();
             }
+        }
+    }
+
+    private class MonitorThread extends Thread {
+
+        volatile boolean done = false;
+        private String filename;
+
+        public MonitorThread(String filename) {
+            this.filename = filename;
+        }
+
+        @Override
+        public void run() {
+            int interval = ProcessDescriptor.getInstance().monitorInterval;
+            int prevCount = 1, count;
+            File file = new File(filename);
+            if (file.exists()) {
+                file.delete();
+            }
+            file.getParentFile().mkdirs();
+            FileWriter fw = null;
+            try {
+                file.createNewFile();
+                fw = new FileWriter(file.getAbsoluteFile());
+
+                BufferedWriter bw = new BufferedWriter(fw);
+                while (!done) {
+
+                    Thread.sleep(interval);
+
+
+                    count = reqDoneCount.getAndSet(0);
+                    if (count == 0 && prevCount == 0) {
+                        continue;
+                    }
+
+                    double tps = count * 1000.0 / interval;
+                    bw.write(tps + "\n");
+                    System.out.println("Throughput: " + tps);
+                    prevCount = count;
+                }
+                bw.close();
+            } catch (Exception e) {
+                e.printStackTrace();
+                System.exit(-1);
+            }
+        }
+
+        public void setDone() {
+            this.done = true;
         }
     }
 
@@ -170,7 +234,7 @@ public class LatencyClient implements Client {
 
         ClientThread(int clientId) throws IOException {
             this.clientId = clientId;
-            this.random = new Random();
+            this.random = new Random(localId * clientId);
             this.sends = new ArrayBlockingQueue<>(128);
         }
 

@@ -123,13 +123,10 @@ public final class ProcessDescriptor {
     public final int fastQuorum;
     public final int classicQuorum;
 
-    public final int batchingLevel;
     public final int maxUdpPacketSize;
-    public final int maxBatchDelay;
 
     public final String network;
 
-    public final long retransmitTimeout;
     public final long tcpReconnectTimeout;
     public final int fdSuspectTimeout;
     public final int fdSendTimeout;
@@ -175,15 +172,15 @@ public final class ProcessDescriptor {
         this.zmqHost = config.getProperty(ZMQ_HOST, DEFAULT_ZMQ_HOST);
         this.zmqPort = config.getProperty(ZMQ_PORT, DEFAULT_ZMQ_PORT);
 
-        this.batchingLevel = config.getIntProperty(BATCH_SIZE, DEFAULT_BATCH_SIZE);
+//        this.batchingLevel = config.getIntProperty(BATCH_SIZE, DEFAULT_BATCH_SIZE);
         this.maxUdpPacketSize = config.getIntProperty(MAX_UDP_PACKET_SIZE,
                 DEFAULT_MAX_UDP_PACKET_SIZE);
-        this.maxBatchDelay = config.getIntProperty(MAX_BATCH_DELAY,
-                DEFAULT_MAX_BATCH_DELAY);
+//        this.maxBatchDelay = config.getIntProperty(MAX_BATCH_DELAY,
+//                DEFAULT_MAX_BATCH_DELAY);
         this.network = config.getProperty(NETWORK, DEFAULT_NETWORK);
 
-        this.retransmitTimeout = config.getLongProperty(RETRANSMIT_TIMEOUT,
-                DEFAULT_RETRANSMIT_TIMEOUT);
+//        this.retransmitTimeout = config.getLongProperty(RETRANSMIT_TIMEOUT,
+//                DEFAULT_RETRANSMIT_TIMEOUT);
         this.tcpReconnectTimeout = config.getLongProperty(TCP_RECONNECT_TIMEOUT,
                 DEFAULT_TCP_RECONNECT_TIMEOUT);
 

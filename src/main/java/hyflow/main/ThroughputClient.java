@@ -41,7 +41,7 @@ public class ThroughputClient implements Client {
         this.caesar = caesar;
 
         this.numReplicas = ProcessDescriptor.getInstance().numReplicas;
-        this.localId = ProcessDescriptor.getInstance().localId;
+        this.localId = replicaId;
 
         this.requestMap = new ConcurrentHashMap<>();
 
@@ -84,11 +84,11 @@ public class ThroughputClient implements Client {
         int writePercent = Integer.parseInt(configuration.getProperty("WritePercent"));
         int batchSize = Integer.parseInt(configuration.getProperty("BatchSize"));
 
-        for (int i = 0; i < clients.length; i++) {
-            for (int j = 0; j < conflicts.length; j++) {
-                for (int k = 0; k < requests.length; k++) {
+        for (int client : clients) {
+            for (int conflict : conflicts) {
+                for (int request : requests) {
                     try {
-                        execute(clients[i], requests[k], conflicts[j], writePercent, batchSize);
+                        execute(client, request, conflict, writePercent, batchSize);
                     } catch (Exception e) {
                         e.printStackTrace();
                         System.exit(-1);
@@ -125,7 +125,7 @@ public class ThroughputClient implements Client {
         }
         gc();
         try {
-            Thread.sleep(2000);
+            Thread.sleep(5000);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
@@ -233,7 +233,7 @@ public class ThroughputClient implements Client {
 
         ClientThread(int clientId) throws IOException {
             this.clientId = clientId;
-            this.random = new Random();
+            this.random = new Random(localId * clientId);
             this.sends = new ArrayBlockingQueue<>(128);
         }
 
@@ -280,7 +280,6 @@ public class ThroughputClient implements Client {
                         }
 
                     }
-
                     for (Request request : requests) {
                         RequestId requestId = request.getId();
                         synchronized (requestId) {
