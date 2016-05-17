@@ -7,6 +7,7 @@ import hyflow.common.RequestId;
 import hyflow.common.RequestStatus;
 
 import java.util.SortedSet;
+import java.util.TreeSet;
 import java.util.concurrent.ConcurrentSkipListSet;
 
 /**
@@ -17,7 +18,7 @@ public class RetryReplyInfo {
     private final Request request;
     private final RetryReply[] replies;
 
-    private final SortedSet<RequestId> predSet;
+    private final TreeSet<RequestId> predSet;
     private final int classicQuorum;
     private long position;
     private int count;
@@ -29,7 +30,7 @@ public class RetryReplyInfo {
 
         replies = new RetryReply[numReplicas];
 
-        predSet = new ConcurrentSkipListSet<>();
+        predSet = new TreeSet<>();
         position = request.getPosition();
 
         count = 0;

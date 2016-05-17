@@ -7,6 +7,7 @@ import hyflow.common.RequestId;
 
 import java.util.Arrays;
 import java.util.SortedSet;
+import java.util.TreeSet;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.ScheduledFuture;
 
@@ -21,7 +22,7 @@ public class FastProposeReplyInfo {
     private final int fastQuorum;
     private final int classicQuorum;
 
-    private final SortedSet<RequestId> predSet;
+    private final TreeSet<RequestId> predSet;
     private long position;
     private boolean nack;
 
@@ -35,7 +36,7 @@ public class FastProposeReplyInfo {
 
         replies = new FastProposeReply[numReplicas];
 
-        predSet = new ConcurrentSkipListSet<>();
+        predSet = new TreeSet<>();
         position = request.getPosition();
         nack = false;
 

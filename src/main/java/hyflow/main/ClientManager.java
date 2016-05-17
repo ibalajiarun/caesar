@@ -31,7 +31,7 @@ public class ClientManager implements Client {
     private static final Marker marker = MarkerManager.getMarker("ClientManager");
 
     private final Semaphore finishedLock = new Semaphore(1);
-    private final int localId;
+    private final short localId;
     private int replicaId;
     private final AbstractService service;
 
@@ -49,7 +49,7 @@ public class ClientManager implements Client {
     private int lastRequestCount;
     private int barrierCount;
 
-    public ClientManager(int replicaId, AbstractService service, Caesar caesar) throws IOException {
+    public ClientManager(short replicaId, AbstractService service, Caesar caesar) throws IOException {
         this.replicaId = replicaId;
         this.service = service;
         this.caesar = caesar;
@@ -189,7 +189,9 @@ public class ClientManager implements Client {
 //            logger.debug("ReqTime: {} PD: {} RD {}", request.getId(), request.onProposeDuration, request.onRetryDuration);
 //        }
         if (req != null) {
-
+//            if(request.objectIds[0] < 50) {
+//                logger.fatal("WTS:{}", request.getPred().size());
+//            }
             RequestId rId = req.getId();
             reqDoneCount.incrementAndGet();
             req.setStatus(RequestStatus.Delivered);

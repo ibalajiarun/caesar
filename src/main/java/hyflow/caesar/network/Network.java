@@ -1,11 +1,15 @@
 package hyflow.caesar.network;
 
 import hyflow.caesar.messages.Message;
+import hyflow.caesar.messages.MessageFactory;
 import hyflow.caesar.messages.MessageType;
 import hyflow.common.ProcessDescriptor;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.io.ByteArrayInputStream;
+import java.io.DataInputStream;
+import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
 
@@ -102,10 +106,15 @@ public abstract class Network {
      * @param destination the id of replica to send message to
      */
     public void sendMessage(Message message, int destination) {
+        byte[] bytes = message.toByteArray();
         if (destination == localId) {
-            fireReceiveMessage(message, localId);
+            try {
+                fireReceiveMessage(MessageFactory.create(new DataInputStream(new ByteArrayInputStream(bytes))), p.localId);
+            } catch (IOException | ClassNotFoundException e) {
+                e.printStackTrace();
+            }
         } else {
-            send(message.toByteArray(), destination);
+            send(bytes, destination);
         }
     }
 

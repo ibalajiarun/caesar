@@ -1,6 +1,7 @@
 package hyflow.caesar.network;
 
 import hyflow.caesar.messages.Message;
+import hyflow.caesar.messages.MessageFactory;
 import hyflow.common.KillOnExceptionHandler;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -80,7 +81,11 @@ public class TcpNetwork extends Network implements Runnable {
         for (int i = destinations.nextSetBit(0); i >= 0; i = destinations.nextSetBit(i + 1)) {
             if (i == p.localId) {
                 // do not send message to self (just fire event)
-                fireReceiveMessage(message, p.localId);
+                try {
+                    fireReceiveMessage(MessageFactory.create(new DataInputStream(new ByteArrayInputStream(bytes))), p.localId);
+                } catch (IOException | ClassNotFoundException e) {
+                    e.printStackTrace();
+                }
             } else {
                 send(bytes, i);
             }

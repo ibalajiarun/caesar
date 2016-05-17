@@ -5,7 +5,8 @@ import hyflow.common.RequestId;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.Set;
+import java.util.Collection;
+import java.util.TreeSet;
 import java.util.concurrent.ConcurrentSkipListSet;
 
 /**
@@ -15,14 +16,19 @@ public final class FastProposeReply extends Message {
 
     private final RequestId requestId;
     private final Status status;
-    private final Set<RequestId> pred;
     private final long position;
 
-    public FastProposeReply(int view, RequestId rId, Status status, Set<RequestId> pred, long position) {
+    private int predSize;
+
+    private Collection<RequestId> pred;
+    private byte[] bytePred;
+
+    public FastProposeReply(int view, RequestId rId, Status status, byte[] pred, int predSize, long position) {
         super(view);
         this.requestId = rId;
         this.status = status;
-        this.pred = pred;
+        this.bytePred = pred;
+        this.predSize = predSize;
         this.position = position;
     }
 
@@ -32,7 +38,7 @@ public final class FastProposeReply extends Message {
         status = Status.values()[input.readUnsignedByte()];
 
         int length = input.readInt();
-        pred = new ConcurrentSkipListSet<>();
+        pred = new TreeSet<>();
         while (--length >= 0)
             pred.add(new RequestId(input));
 
@@ -43,7 +49,7 @@ public final class FastProposeReply extends Message {
         return requestId;
     }
 
-    public Set<RequestId> getPred() {
+    public Collection<RequestId> getPred() {
         return pred;
     }
 
@@ -65,16 +71,14 @@ public final class FastProposeReply extends Message {
         requestId.writeTo(bb);
         bb.put((byte) status.ordinal());
 
-        bb.putInt(pred.size());
-        for (RequestId rId : pred) {
-            rId.writeTo(bb);
-        }
+        bb.putInt(predSize);
+        bb.put(bytePred);
         bb.putLong(position);
     }
 
     @Override
     public int byteSize() {
-        return super.byteSize() + requestId.byteSize() + 1 + 4 + (pred.size() * requestId.byteSize()) + 8;
+        return super.byteSize() + requestId.byteSize() + 1 + 4 + bytePred.length + 8;
     }
 
     @Override

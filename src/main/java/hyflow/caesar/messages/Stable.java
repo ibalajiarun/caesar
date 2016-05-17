@@ -8,7 +8,9 @@ import java.io.DataInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.ConcurrentSkipListSet;
 
 public final class Stable extends Message {
@@ -17,7 +19,7 @@ public final class Stable extends Message {
     private final Request request;
     private final RequestId requestId;
     private final int[] objectIds;
-    private final Set<RequestId> pred;
+    private final Collection<RequestId> pred;
     private final long position;
     private final byte[] payload;
 
@@ -33,7 +35,7 @@ public final class Stable extends Message {
 
     public Stable(DataInputStream input) throws IOException {
         super(input);
-        requestId = new RequestId(input.readInt(), input.readInt());
+        requestId = new RequestId(input);
 
         int oLen = input.readInt();
         objectIds = new int[oLen];
@@ -42,7 +44,7 @@ public final class Stable extends Message {
         }
 
         int pLen = input.readInt();
-        pred = new ConcurrentSkipListSet<>();
+        pred = new TreeSet<>();
         while (--pLen >= 0)
             pred.add(new RequestId(input));
 

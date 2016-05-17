@@ -15,7 +15,7 @@ import java.nio.ByteBuffer;
 public class RequestId implements Serializable, Comparable<RequestId> {
     private static final long serialVersionUID = 1L;
 
-    private final int clientId;
+    private final short clientId;
     private final int seqNumber;
 
     /**
@@ -24,13 +24,13 @@ public class RequestId implements Serializable, Comparable<RequestId> {
      * @param clientId - the id of client
      * @param seqNumber - the request sequence number
      */
-    public RequestId(int clientId, int seqNumber) {
+    public RequestId(short clientId, int seqNumber) {
         this.clientId = clientId;
         this.seqNumber = seqNumber;
     }
 
     public RequestId(DataInputStream input) throws IOException {
-        this.clientId = input.readInt();
+        this.clientId = input.readShort();
         this.seqNumber = input.readInt();
     }
 
@@ -53,11 +53,11 @@ public class RequestId implements Serializable, Comparable<RequestId> {
     }
 
     public int byteSize() {
-        return 4+4;
+        return 2 + 4;
     }
 
     public void writeTo(ByteBuffer bb) {
-        bb.putInt(clientId);
+        bb.putShort(clientId);
         bb.putInt(seqNumber);
     }
 

@@ -95,8 +95,8 @@ public class Main {
             Replica replica = new Replica(service, caesar);
 
             Class<?> cClass = Class.forName(clientName);
-            Constructor<?> cConstructor = cClass.getConstructor(int.class, AbstractService.class, Caesar.class);
-            Client client = (Client) cConstructor.newInstance(localId, service, caesar);
+            Constructor<?> cConstructor = cClass.getConstructor(short.class, AbstractService.class, Caesar.class);
+            Client client = (Client) cConstructor.newInstance((short) localId, service, caesar);
 
             replica.start(client);
 

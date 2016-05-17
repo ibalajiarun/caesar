@@ -74,13 +74,13 @@ public class KeyValue extends AbstractService {
             switch (accessMode) {
 
                 case 0:
-                    key = 0;
+                    key = rId.getSeqNumber() % 50;
                     objectId[i] = key;
                     break;
 
                 case 1:
 
-                    key = rId.getClientId() + (rId.getSeqNumber() * numReplicas);
+                    key = rId.getClientId() + (rId.getSeqNumber() * numReplicas) + 1000;
                     objectId[i] = key;
                     break;
 

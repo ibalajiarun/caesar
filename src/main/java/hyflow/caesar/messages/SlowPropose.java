@@ -7,7 +7,9 @@ import hyflow.common.RequestStatus;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Collection;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.ConcurrentSkipListSet;
 
 public final class SlowPropose extends Message {
@@ -18,7 +20,7 @@ public final class SlowPropose extends Message {
     private final int[] objectIds;
     private final long position;
     private final byte[] payload;
-    private final Set<RequestId> pred;
+    private final Collection<RequestId> pred;
 
     public SlowPropose(int view, Request request) {
         super(view);
@@ -32,7 +34,7 @@ public final class SlowPropose extends Message {
 
     public SlowPropose(DataInputStream input) throws IOException {
         super(input);
-        this.requestId = new RequestId(input.readInt(), input.readInt());
+        this.requestId = new RequestId(input);
 
         int length = input.readInt();
         this.objectIds = new int[length];
@@ -41,7 +43,7 @@ public final class SlowPropose extends Message {
         }
 
         int predLen = input.readInt();
-        pred = new ConcurrentSkipListSet<>();
+        pred = new TreeSet<>();
         while (--predLen >= 0)
             pred.add(new RequestId(input));
 

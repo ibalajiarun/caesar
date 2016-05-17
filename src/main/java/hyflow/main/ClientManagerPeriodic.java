@@ -21,7 +21,8 @@ public class ClientManagerPeriodic {
     private static final Logger logger = LogManager.getLogger(ClientManagerPeriodic.class);
     private final AbstractService service;
     private final int clientCount;
-    private final int replicaId;
+    private final short replicaId;
+
     private final Replica replica;
     private final ClientThread[] clients;
     private final ConcurrentMap<RequestId, RequestId> requestMap;
@@ -33,7 +34,7 @@ public class ClientManagerPeriodic {
 //    private AtomicInteger count = new AtomicInteger(0);
 //    private AtomicInteger latency = new AtomicInteger(0);
 
-    public ClientManagerPeriodic(int clientCount, int replicaId, AbstractService service, Replica replica, Caesar caesar) throws IOException {
+    public ClientManagerPeriodic(int clientCount, short replicaId, AbstractService service, Replica replica, Caesar caesar) throws IOException {
         this.service = service;
         this.clientCount = clientCount;
         this.replicaId = replicaId;
@@ -181,7 +182,7 @@ public class ClientManagerPeriodic {
                     paused.getAndSet(false);
 
                     Request request = service.createRequest(
-                            new RequestId(clientId, sequenceNum++),
+                            new RequestId(replicaId, sequenceNum++),
                             false, reqType, batchSize, clientCount * numReplicas);
                     RequestId requestId = request.getId();
 

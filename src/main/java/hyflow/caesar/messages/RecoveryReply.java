@@ -7,7 +7,7 @@ import hyflow.common.RequestStatus;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.Set;
+import java.util.Collection;
 import java.util.concurrent.ConcurrentSkipListSet;
 
 /**
@@ -19,7 +19,7 @@ public class RecoveryReply extends Message {
     private final boolean valid;
     private int requestView;
     private long position;
-    private Set<RequestId> pred;
+    private Collection<RequestId> pred;
     private RequestStatus status;
 
     private boolean hasWhitelist;
@@ -69,7 +69,7 @@ public class RecoveryReply extends Message {
         return position;
     }
 
-    public Set<RequestId> getPred() {
+    public Collection<RequestId> getPred() {
         return pred;
     }
 

@@ -5,7 +5,8 @@ import hyflow.common.RequestId;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.Set;
+import java.util.Collection;
+import java.util.TreeSet;
 import java.util.concurrent.ConcurrentSkipListSet;
 
 /**
@@ -14,12 +15,16 @@ import java.util.concurrent.ConcurrentSkipListSet;
 public final class RetryReply extends Message {
 
     private final RequestId requestId;
-    private final Set<RequestId> pred;
 
-    public RetryReply(int view, RequestId rId, Set<RequestId> pred) {
+    private Collection<RequestId> pred;
+    private byte[] bytePred;
+    private int predSize;
+
+    public RetryReply(int view, RequestId rId, byte[] pred, int predSize) {
         super(view);
         this.requestId = rId;
-        this.pred = pred;
+        this.bytePred = pred;
+        this.predSize = predSize;
     }
 
     public RetryReply(DataInputStream input) throws IOException {
@@ -27,7 +32,7 @@ public final class RetryReply extends Message {
         requestId = new RequestId(input);
 
         int length = input.readInt();
-        pred = new ConcurrentSkipListSet<>();
+        pred = new TreeSet<>();
         while (--length >= 0)
             pred.add(new RequestId(input));
     }
@@ -36,7 +41,7 @@ public final class RetryReply extends Message {
         return requestId;
     }
 
-    public Set<RequestId> getPred() {
+    public Collection<RequestId> getPred() {
         return pred;
     }
 
@@ -49,16 +54,13 @@ public final class RetryReply extends Message {
     protected void write(ByteBuffer bb) {
         requestId.writeTo(bb);
 
-        bb.putInt(pred.size());
-        for (RequestId rId : pred) {
-            rId.writeTo(bb);
-        }
+        bb.putInt(predSize);
+        bb.put(bytePred);
     }
 
     @Override
     public int byteSize() {
-        return super.byteSize() + requestId.byteSize() +
-                4 + (pred.size() * requestId.byteSize());
+        return super.byteSize() + requestId.byteSize() + 4 + bytePred.length;
     }
 
     @Override

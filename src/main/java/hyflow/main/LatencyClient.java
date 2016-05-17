@@ -27,21 +27,21 @@ public class LatencyClient implements Client {
     private final Semaphore finishedLock = new Semaphore(1);
     private final AbstractService service;
     private final Caesar caesar;
-    private final int numReplicas;
+    private final short numReplicas;
     //    private final IdGenerator idGenerator;
     private final Map<RequestId, Request> requestMap;
-    private final int localId;
+    private final short localId;
     private Vector<ClientThread> clients = new Vector<>();
     private AtomicInteger runningClients = new AtomicInteger(0);
 
     private AtomicInteger reqDoneCount = new AtomicInteger(0);
-    private MonitorThread monitorThread;
+//    private MonitorThread monitorThread;
 
-    public LatencyClient(int replicaId, AbstractService service, Caesar caesar) throws IOException {
+    public LatencyClient(short replicaId, AbstractService service, Caesar caesar) throws IOException {
         this.service = service;
         this.caesar = caesar;
 
-        this.numReplicas = ProcessDescriptor.getInstance().numReplicas;
+        this.numReplicas = replicaId;
         this.localId = replicaId;
 
         this.requestMap = new ConcurrentHashMap<>();
@@ -118,7 +118,7 @@ public class LatencyClient implements Client {
 
     private void finished() {
         System.out.println("Finished");
-        monitorThread.setDone();
+//        monitorThread.setDone();
         try {
             Thread.sleep(2000);
         } catch (InterruptedException e) {
@@ -139,7 +139,7 @@ public class LatencyClient implements Client {
 
         finishedLock.acquire();
 
-        monitorThread = new MonitorThread("latlogs/tps-C" + conflictPercent + "-R" + requests + ".log");
+//        monitorThread = new MonitorThread("latlogs/tps-C" + conflictPercent + "-R" + requests + ".log");
 
         System.out.println(String.format("Executing %d %d %d %d %d", clientCount, requests, conflictPercent, writePercent, batchSize));
 
@@ -155,7 +155,7 @@ public class LatencyClient implements Client {
             clients.get(i).execute(clientCount, requests, conflictPercent, writePercent, batchSize);
         }
 
-        monitorThread.start();
+//        monitorThread.start();
     }
 
     @Override

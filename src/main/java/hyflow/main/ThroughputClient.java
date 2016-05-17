@@ -2,6 +2,7 @@ package hyflow.main;
 
 import hyflow.benchmark.AbstractService;
 import hyflow.caesar.Caesar;
+import hyflow.caesar.statistics.RequestStats;
 import hyflow.common.*;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -28,7 +29,7 @@ public class ThroughputClient implements Client {
     private final AbstractService service;
     private final Caesar caesar;
     private final int numReplicas;
-    private final int localId;
+    private final short localId;
     private final Map<RequestId, Request> requestMap;
     private Vector<ClientThread> clients = new Vector<>();
     private AtomicInteger runningClients = new AtomicInteger(0);
@@ -36,7 +37,7 @@ public class ThroughputClient implements Client {
     private MonitorThread monitorThread;
 
 
-    public ThroughputClient(int replicaId, AbstractService service, Caesar caesar) throws IOException {
+    public ThroughputClient(short replicaId, AbstractService service, Caesar caesar) throws IOException {
         this.service = service;
         this.caesar = caesar;
 
@@ -115,9 +116,40 @@ public class ThroughputClient implements Client {
         System.out.println("refreshed");
     }
 
-    private void finished() {
+    private void finished(int conflictPercent, int count) {
+        logger.fatal("Finished");
         System.out.println("Finished");
         monitorThread.setDone();
+        RequestStats.getInstance().printAndResetStats();
+        File file = new File("costlogs/cost-C" + conflictPercent + "-R" + count + ".log");
+        if (file.exists()) {
+            file.delete();
+        }
+        file.getParentFile().mkdirs();
+        FileWriter fw = null;
+        try {
+            file.createNewFile();
+            fw = new FileWriter(file.getAbsoluteFile());
+
+            BufferedWriter bw = new BufferedWriter(fw);
+            requestMap.forEach((rId, request) -> {
+                try {
+                    if (request.objectIds[0] == 0) {
+                        bw.write(String.format("WT:%s,%d\n", rId, request.waitDuration));
+                    }
+                    bw.write(String.format("RT:%s,%d,%d\n", rId, request.retryDuration, request.deliverDuration));
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            });
+            bw.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        requestMap.clear();
+
+
         try {
             Thread.sleep(2000);
         } catch (InterruptedException e) {
@@ -164,6 +196,11 @@ public class ThroughputClient implements Client {
             RequestId rId = req.getId();
             reqDoneCount.incrementAndGet();
             req.setStatus(RequestStatus.Delivered);
+
+            req.deliverDuration = request.deliverDuration;
+            req.waitDuration = request.waitDuration;
+            req.retryDuration = request.retryDuration;
+
             synchronized (rId) {
                 rId.notifyAll();
             }
@@ -200,9 +237,9 @@ public class ThroughputClient implements Client {
 
 
                     count = reqDoneCount.getAndSet(0);
-                    if (count == 0 && prevCount == 0) {
-                        continue;
-                    }
+//                    if (count == 0 && prevCount == 0) {
+//                        continue;
+//                    }
 
                     double tps = count * 1000.0 / interval;
                     bw.write(tps + "\n");
@@ -302,7 +339,7 @@ public class ThroughputClient implements Client {
 
                     int stillActive = runningClients.decrementAndGet();
                     if (stillActive == 0) {
-                        finished();
+                        finished(conflictPercent, count);
                     }
                 }
             } catch (InterruptedException e) {

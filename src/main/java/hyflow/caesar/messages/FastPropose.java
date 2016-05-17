@@ -42,7 +42,7 @@ public final class FastPropose extends Message {
 
     public FastPropose(DataInputStream input) throws IOException {
         super(input);
-        requestId = new RequestId(input.readInt(), input.readInt());
+        requestId = new RequestId(input);
 
         int length = input.readInt();
         objectIds = new int[length];

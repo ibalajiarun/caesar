@@ -110,10 +110,8 @@ public final class Caesar implements FailureDetector.FailureDetectorListener {
     }
 
     public void propose(final Request request) {
-
 //        proposer.fastPropose(request);
         cReqDispatcher.execute(() -> proposer.fastPropose(request));
-
     }
 
     public void onDelivery(Request request) {
@@ -122,6 +120,11 @@ public final class Caesar implements FailureDetector.FailureDetectorListener {
 
     public void refresh() {
         cDetector = new ConflictDetector(totalObjects);
+        intDispatcher.getQueue().clear();
+        auxDispatcher.getQueue().clear();
+        cReqDispatcher.getQueue().clear();
+        propDispatcher.getQueue().clear();
+        stableDispatcher.getQueue().clear();
         this.proposer = new Proposer(tsGen, cDetector, proposeChannel, repliesChannel,
                 stableChannel, otherChannel, intDispatcher, this);
     }

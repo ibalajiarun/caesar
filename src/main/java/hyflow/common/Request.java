@@ -1,11 +1,6 @@
 package hyflow.common;
 
-import hyflow.caesar.FastProposeReplyInfo;
-
-import java.util.Arrays;
-import java.util.Set;
-import java.util.SortedSet;
-import java.util.concurrent.ConcurrentSkipListSet;
+import java.util.*;
 
 /**
  * Request from the user which needs to be inserted in state machine. It can 
@@ -20,7 +15,7 @@ public final class Request implements Comparable<Request> {
 
     public byte[] payload;
 
-    private Set<RequestId> pred;
+    private Collection<RequestId> pred;
 
     private long position;
     private RequestStatus status;
@@ -28,29 +23,30 @@ public final class Request implements Comparable<Request> {
 
     private boolean hasWhitelist;
 
-//    public long startWait;
-//    public long waitDuration;
-//    public int onProposeDuration;
-//    public int onRetryDuration;
-//    public long sentTime;
+    public long startWait;
+    public int waitDuration;
+    public long startDeliver;
+    public int deliverDuration;
+    public long startRetry;
+    public int retryDuration;
 
     public Request(RequestId requestId, int[] objectIds, byte[] payload) {
         this.requestId = requestId;
         this.objectIds = objectIds;
         this.payload = payload;
         this.status = RequestStatus.Waiting;
-        this.pred = new ConcurrentSkipListSet<>();
+        this.pred = new TreeSet<>();
         this.view = 0;
         this.position = -1;
     }
 
     public Request(RequestId requestId, int[] objectIds, byte[] payload,
-                   long position, Set<RequestId> pred, RequestStatus status, int view) {
+                   long position, Collection<RequestId> pred, RequestStatus status, int view) {
         this.requestId = requestId;
         this.objectIds = objectIds;
         this.payload = payload;
         this.position = position;
-        this.pred = pred == null ? new ConcurrentSkipListSet<>() : pred;
+        this.pred = pred == null ? new TreeSet<>() : pred;
         this.status = status;
         this.view = view;
     }
@@ -83,11 +79,11 @@ public final class Request implements Comparable<Request> {
         this.status = status;
     }
 
-    public synchronized Set<RequestId> getPred() {
+    public synchronized Collection<RequestId> getPred() {
         return pred;
     }
 
-    public synchronized void setPred(Set<RequestId> pred) {
+    public synchronized void setPred(Collection<RequestId> pred) {
         this.pred = pred;
     }
 
