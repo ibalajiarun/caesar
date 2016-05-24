@@ -2,6 +2,8 @@ package hyflow.main;
 
 import hyflow.benchmark.AbstractService;
 import hyflow.caesar.Caesar;
+import hyflow.caesar.FastProposeReplyInfo;
+import hyflow.caesar.messages.FastProposeReply;
 import hyflow.caesar.statistics.RequestStats;
 import hyflow.common.*;
 import org.apache.logging.log4j.LogManager;
@@ -116,12 +118,17 @@ public class ThroughputClient implements Client {
         System.out.println("refreshed");
     }
 
-    private void finished(int conflictPercent, int count) {
+    private class CostInfo {
+        long retry, propose, deliver, count;
+        int wait, waitCount;
+    }
+
+    private void finished(int conflictPercent, int reqCount, double tps) {
         logger.fatal("Finished");
         System.out.println("Finished");
         monitorThread.setDone();
         RequestStats.getInstance().printAndResetStats();
-        File file = new File("costlogs/cost-C" + conflictPercent + "-R" + count + ".log");
+        File file = new File("costlogs/cost-C" + conflictPercent + "-R" + reqCount + ".log");
         if (file.exists()) {
             file.delete();
         }
@@ -132,16 +139,30 @@ public class ThroughputClient implements Client {
             fw = new FileWriter(file.getAbsoluteFile());
 
             BufferedWriter bw = new BufferedWriter(fw);
+            CostInfo info = new CostInfo();
             requestMap.forEach((rId, request) -> {
-                try {
-                    if (request.objectIds[0] == 0) {
-                        bw.write(String.format("WT:%s,%d\n", rId, request.waitDuration));
+                info.propose += request.proposeDuration;
+                info.retry += request.retryDuration;
+                info.deliver += request.deliverDuration;
+                FastProposeReply[] replies = request.info.getReplies();
+                if (request.objectIds[0] < ProcessDescriptor.getInstance().conflictPool) {
+                    int max = 0;
+                    for (FastProposeReply reply : replies) {
+                        if (reply != null) {
+                            max = Math.max(max, reply.getWaitTime());
+                        }
                     }
-                    bw.write(String.format("RT:%s,%d,%d\n", rId, request.retryDuration, request.deliverDuration));
-                } catch (IOException e) {
-                    e.printStackTrace();
+                    info.wait += max;
+                    info.waitCount++;
                 }
+                info.count++;
             });
+            bw.write(String.format("%f,%f,%f,%f,%f\n",
+                    tps,
+                    info.propose * 1.0 / info.count,
+                    info.retry * 1.0 / info.count,
+                    info.deliver * 1.0 / info.count,
+                    info.wait * 1.0 / info.waitCount));
             bw.close();
         } catch (IOException e) {
             e.printStackTrace();
@@ -198,8 +219,9 @@ public class ThroughputClient implements Client {
             req.setStatus(RequestStatus.Delivered);
 
             req.deliverDuration = request.deliverDuration;
-            req.waitDuration = request.waitDuration;
+            req.proposeDuration = request.proposeDuration;
             req.retryDuration = request.retryDuration;
+            req.info = request.info;
 
             synchronized (rId) {
                 rId.notifyAll();
@@ -339,7 +361,7 @@ public class ThroughputClient implements Client {
 
                     int stillActive = runningClients.decrementAndGet();
                     if (stillActive == 0) {
-                        finished(conflictPercent, count);
+                        finished(conflictPercent, count, (double) count * 1000 / duration);
                     }
                 }
             } catch (InterruptedException e) {

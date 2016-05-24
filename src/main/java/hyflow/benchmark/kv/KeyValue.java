@@ -1,6 +1,7 @@
 package hyflow.benchmark.kv;
 
 import hyflow.benchmark.AbstractService;
+import hyflow.common.ProcessDescriptor;
 import hyflow.common.Request;
 import hyflow.common.RequestId;
 import hyflow.transaction.SharedObjectRegistry;
@@ -74,13 +75,13 @@ public class KeyValue extends AbstractService {
             switch (accessMode) {
 
                 case 0:
-                    key = rId.getSeqNumber() % 50;
+                    key = rId.getSeqNumber() % ProcessDescriptor.getInstance().conflictPool;
                     objectId[i] = key;
                     break;
 
                 case 1:
 
-                    key = rId.getClientId() + (rId.getSeqNumber() * numReplicas) + 1000;
+                    key = rId.getClientId() + (rId.getSeqNumber() * numReplicas) + ProcessDescriptor.getInstance().conflictPool + 1;
                     objectId[i] = key;
                     break;
 

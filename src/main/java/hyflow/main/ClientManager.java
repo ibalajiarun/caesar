@@ -2,10 +2,8 @@ package hyflow.main;
 
 import hyflow.benchmark.AbstractService;
 import hyflow.caesar.Caesar;
-import hyflow.caesar.replica.Replica;
 import hyflow.caesar.statistics.RequestStats;
 import hyflow.common.*;
-import org.apache.commons.math3.stat.descriptive.SummaryStatistics;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.Marker;

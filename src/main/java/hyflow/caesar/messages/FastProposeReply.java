@@ -17,19 +17,21 @@ public final class FastProposeReply extends Message {
     private final RequestId requestId;
     private final Status status;
     private final long position;
+    private final int waitTime;
 
     private int predSize;
 
     private Collection<RequestId> pred;
     private byte[] bytePred;
 
-    public FastProposeReply(int view, RequestId rId, Status status, byte[] pred, int predSize, long position) {
+    public FastProposeReply(int view, RequestId rId, Status status, byte[] pred, int predSize, long position, int waitTime) {
         super(view);
         this.requestId = rId;
         this.status = status;
         this.bytePred = pred;
         this.predSize = predSize;
         this.position = position;
+        this.waitTime = waitTime;
     }
 
     public FastProposeReply(DataInputStream input) throws IOException {
@@ -43,6 +45,7 @@ public final class FastProposeReply extends Message {
             pred.add(new RequestId(input));
 
         position = input.readLong();
+        waitTime = input.readInt();
     }
 
     public RequestId getRequestId() {
@@ -74,11 +77,12 @@ public final class FastProposeReply extends Message {
         bb.putInt(predSize);
         bb.put(bytePred);
         bb.putLong(position);
+        bb.putInt(waitTime);
     }
 
     @Override
     public int byteSize() {
-        return super.byteSize() + requestId.byteSize() + 1 + 4 + bytePred.length + 8;
+        return super.byteSize() + requestId.byteSize() + 1 + 4 + bytePred.length + 8 + 4;
     }
 
     @Override
@@ -89,6 +93,10 @@ public final class FastProposeReply extends Message {
                 ", pred=" + pred +
                 ", position=" + position +
                 '}';
+    }
+
+    public int getWaitTime() {
+        return waitTime;
     }
 
     public enum Status {

@@ -27,7 +27,7 @@ public class LatencyClient implements Client {
     private final Semaphore finishedLock = new Semaphore(1);
     private final AbstractService service;
     private final Caesar caesar;
-    private final short numReplicas;
+    private final int numReplicas;
     //    private final IdGenerator idGenerator;
     private final Map<RequestId, Request> requestMap;
     private final short localId;
@@ -35,13 +35,13 @@ public class LatencyClient implements Client {
     private AtomicInteger runningClients = new AtomicInteger(0);
 
     private AtomicInteger reqDoneCount = new AtomicInteger(0);
-//    private MonitorThread monitorThread;
+    private MonitorThread monitorThread;
 
     public LatencyClient(short replicaId, AbstractService service, Caesar caesar) throws IOException {
         this.service = service;
         this.caesar = caesar;
 
-        this.numReplicas = replicaId;
+        this.numReplicas = ProcessDescriptor.getInstance().numReplicas;
         this.localId = replicaId;
 
         this.requestMap = new ConcurrentHashMap<>();
@@ -130,7 +130,8 @@ public class LatencyClient implements Client {
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
-
+        caesar.enterBarrier("resume", numReplicas);
+        System.out.println("Resumed");
         finishedLock.release();
     }
 
@@ -190,6 +191,7 @@ public class LatencyClient implements Client {
             }
             file.getParentFile().mkdirs();
             FileWriter fw = null;
+//            int iterations = 0;
             try {
                 file.createNewFile();
                 fw = new FileWriter(file.getAbsoluteFile());
@@ -199,14 +201,22 @@ public class LatencyClient implements Client {
 
                     Thread.sleep(interval);
 
-
                     count = reqDoneCount.getAndSet(0);
                     if (count == 0 && prevCount == 0) {
                         continue;
                     }
 
+//                    iterations++;
+//                    if(iterations > 20 && localId == 0) {
+//                        System.out.println("KILLING");
+//                        System.exit(-1);
+//                    }
                     double tps = count * 1000.0 / interval;
                     bw.write(tps + "\n");
+//                    if(iterations > 50) {
+//                        bw.flush();
+//                        System.exit(-1);
+//                    }
                     System.out.println("Throughput: " + tps);
                     prevCount = count;
                 }
@@ -251,8 +261,13 @@ public class LatencyClient implements Client {
 
                 while (true) {
                     count = sends.take();
+
+//                    if(clientId >= 500) {
+//                        Thread.sleep(20000);
+//                    }
+
                     seqGen = new SimpleIdGenerator(clientId, clientCount);
-                    file = new File("latlogs/latency-C" + conflictPercent + "-R" + count + "/" + clientId + ".log");
+                    file = new File("latlogs/latency-Client-" + clientCount + "C" + conflictPercent + "-R" + count + "/" + clientId + ".log");
                     if (file.exists()) {
                         file.delete();
                     }
@@ -293,6 +308,7 @@ public class LatencyClient implements Client {
 
                         long duration = System.currentTimeMillis() - start;
                         bw.write(duration + "\n");
+                        bw.flush();
                     }
 
                     bw.close();

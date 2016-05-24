@@ -26,7 +26,7 @@ public class RetryReplyInfo {
 
     public RetryReplyInfo(Request request, int numReplicas) {
         this.request = request;
-        this.request.setStatus(RequestStatus.Accepted);
+//        this.request.setStatus(RequestStatus.Accepted);
 
         replies = new RetryReply[numReplicas];
 

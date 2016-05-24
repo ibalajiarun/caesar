@@ -94,7 +94,7 @@ public class TcpConnection {
 //                }
 //
             } else {
-                if (dropped % 1024 == 0) {
+                if (dropped % 102400 == 0) {
                     logger.fatal("Dropping message, not connected. To: " + replica.getId() + ". " + dropped);
                 }
                 dropped++;

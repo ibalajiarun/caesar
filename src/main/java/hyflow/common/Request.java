@@ -1,5 +1,7 @@
 package hyflow.common;
 
+import hyflow.caesar.FastProposeReplyInfo;
+
 import java.util.*;
 
 /**
@@ -25,10 +27,13 @@ public final class Request implements Comparable<Request> {
 
     public long startWait;
     public int waitDuration;
+    public long startPropose;
+    public long proposeDuration;
     public long startDeliver;
-    public int deliverDuration;
+    public long deliverDuration;
     public long startRetry;
-    public int retryDuration;
+    public long retryDuration;
+    public FastProposeReplyInfo info;
 
     public Request(RequestId requestId, int[] objectIds, byte[] payload) {
         this.requestId = requestId;

@@ -110,4 +110,8 @@ public class FastProposeReplyInfo {
                 ", done=" + done +
                 '}';
     }
+
+    public FastProposeReply[] getReplies() {
+        return replies;
+    }
 }

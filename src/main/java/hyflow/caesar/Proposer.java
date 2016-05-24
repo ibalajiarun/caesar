@@ -112,6 +112,7 @@ public class Proposer {
         int id = getIntId(request.getId());
         fpReplies[id] = new FastProposeReplyInfo(request, ProcessDescriptor.getInstance().numReplicas);
         this.proposedReqs[id] = request;
+        request.startPropose = System.currentTimeMillis();
 
         proposeChannel.sendToAll(proposeMsg);
     }
@@ -121,10 +122,10 @@ public class Proposer {
 
         Request msgRequest = msg.getRequest();
         RequestId rId = msgRequest.getId();
+        int id = getIntId(rId);
 
         tsGenerator.setTimestamp(msgRequest.getPosition());
 
-        int id = getIntId(rId);
         synchronized (reqInfos[id]) {
             RequestInfo rInfo = reqInfos[id];
 
@@ -137,8 +138,8 @@ public class Proposer {
                 return;
             }
 
-            Collection<RequestId> predSet = conflictDetector.computeNewPredFor(msgRequest, msgRequest.getPosition(), msg.getWhiteList());
-            msgRequest.setPred(predSet);
+//            Collection<RequestId> predSet = conflictDetector.computeNewPredFor(msgRequest, msgRequest.getPosition(), msg.getWhiteList());
+//            msgRequest.setPred(predSet);
             Request request = conflictDetector.updateRequest(msgRequest);
 
             rInfo.setStatus(RequestStatus.FastPending);
@@ -168,12 +169,12 @@ public class Proposer {
 
     private void fastProposeResume(RequestInfo reqInfo, Request request, int view, int sender,
                                    Set<RequestId> whiteList, Request[] waitReqs, int startIdx) {
+        RequestId rId = request.getId();
+//        int id = getIntId(rId);
 
         if (request.startWait > 0) {
             request.waitDuration += (int) (System.currentTimeMillis() - request.startWait);
         }
-
-        RequestId rId = request.getId();
 
         synchronized (reqInfo) {
 
@@ -183,7 +184,6 @@ public class Proposer {
             }
 
             conflictDetector.lock(request.objectIds[0]);
-            boolean reject = false;
             for (int index = startIdx; index < waitReqs.length; index++) {
                 Request req = waitReqs[index];
 
@@ -197,15 +197,14 @@ public class Proposer {
 
                         if (req.getStatus().ordinal() < RequestStatus.Accepted.ordinal()) {
 
-                                prQ.add(new OnFastProposeRunner(reqInfo, request, view, sender, whiteList,
+                            prQ.add(new OnFastProposeRunner(reqInfo, request, view, sender, whiteList,
                                         waitReqs, index));
-                            request.startWait = System.currentTimeMillis();
                             conflictDetector.unlock(request.objectIds[0]);
-                                return;
+                            request.startWait = System.currentTimeMillis();
+                            return;
 
                         } else {
 
-                            reject = true;
                             sendFastProposeReject(reqInfo, view, sender, request);
                             conflictDetector.unlock(request.objectIds[0]);
                             return;
@@ -215,11 +214,6 @@ public class Proposer {
                 }
             }
             conflictDetector.unlock(request.objectIds[0]);
-
-            if (reject) {
-                sendFastProposeReject(reqInfo, view, sender, request);
-                return;
-            }
 
             Collection<RequestId> predSet = conflictDetector.computeNewPredFor(request, request.getPosition(), whiteList);
             request.setPred(predSet);
@@ -240,7 +234,7 @@ public class Proposer {
             conflictDetector.unlock(request.objectIds[0]);
 
             FastProposeReply replyMsg = new FastProposeReply(view, request.getId(),
-                    FastProposeReply.Status.ACK, bb.array(), predSize, request.getPosition());
+                    FastProposeReply.Status.ACK, bb.array(), predSize, request.getPosition(), request.waitDuration);
             repliesChannel.sendMessage(replyMsg, sender);
         }
 
@@ -265,7 +259,7 @@ public class Proposer {
         conflictDetector.unlock(request.objectIds[0]);
 
         FastProposeReply replyMsg = new FastProposeReply(view, request.getId(),
-                FastProposeReply.Status.NACK, bb.array(), predSize, position);
+                FastProposeReply.Status.NACK, bb.array(), predSize, position, request.waitDuration);
         repliesChannel.sendMessage(replyMsg, sender);
 
     }
@@ -317,7 +311,7 @@ public class Proposer {
                 Retry retryMsg = new Retry(msg.getView(), request);
                 proposeChannel.sendToAll(retryMsg);
 
-                request.startRetry = System.currentTimeMillis();
+                proposedReqs[id].startRetry = System.currentTimeMillis();
 
             } else if (info.isClassicQuorum()) {
 
@@ -336,6 +330,7 @@ public class Proposer {
 
             }
 
+            proposedReqs[id].proposeDuration = (int) (System.currentTimeMillis() - proposedReqs[id].startPropose);
             ScheduledFuture<?> future = info.getSlowProposeFuture();
             if (future != null) {
                 future.cancel(false);
@@ -590,7 +585,7 @@ public class Proposer {
             info.setDone();
 
             Request request = info.updateAndGetRequest();
-            request.retryDuration = (int) (System.currentTimeMillis() - request.startRetry);
+            proposedReqs[id].retryDuration = (int) (System.currentTimeMillis() - request.startRetry);
 
             Stable stableMsg = new Stable(msg.getView(), request);
             stableChannel.sendToAll(stableMsg);
@@ -729,6 +724,12 @@ public class Proposer {
             index++;
         }
 
+        int id = getIntId(request.getId());
+        if (proposedReqs[id] != null) {
+            request.proposeDuration = proposedReqs[id].proposeDuration;
+            request.retryDuration = proposedReqs[id].retryDuration;
+            request.info = fpReplies[id];
+        }
         caesar.deliver(request);
 
     }

@@ -105,6 +105,9 @@ public final class ProcessDescriptor {
     private static final String MONITOR_INTERVAL = "MonitorInterval";
     private static final int DEFAULT_MONITOR_INTERVAL = 2000;
 
+    private static final String CONFLICT_POOL = "ConflictPool";
+    private static final int DEFAULT_CONFLICT_POOL = 50;
+
     /*
      * Singleton class with static access. This allows any class on the JVM to
      * statically access the process descriptor without needing to be given a
@@ -148,6 +151,7 @@ public final class ProcessDescriptor {
     public final int recoveryLeader;
     public final int fpTimeout;
     public final int monitorInterval;
+    public final int conflictPool;
 
     private ProcessDescriptor(Configuration config, int localId) {
         this.localId = localId;
@@ -197,6 +201,9 @@ public final class ProcessDescriptor {
 
         this.monitorInterval = config.getIntProperty(MONITOR_INTERVAL,
                 DEFAULT_MONITOR_INTERVAL);
+
+        this.conflictPool = config.getIntProperty(CONFLICT_POOL,
+                DEFAULT_CONFLICT_POOL);
     }
 
     public static void initialize(Configuration config, int localId) {
