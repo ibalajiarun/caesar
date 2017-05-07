@@ -8,7 +8,7 @@ import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 import java.util.*;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-
+import java.util.concurrent.TimeUnit;
 /**
  * Created by balajiarun on 3/11/16.
  */
@@ -23,7 +23,6 @@ public class ConflictDetector {
     private final TreeMap<Long, RequestId>[] objReqIdMap;
 
     private final ReadWriteLock[] reqMapLock;
-
     //    private final Logger logger = LogManager.getLogger(ConflictDetector.class);
     private final int numReplicas;
 
@@ -52,9 +51,9 @@ public class ConflictDetector {
 
     Request updateRequest(Request newReq) {
 
-        if (newReq.objectIds.length > 1) {
-            throw new NotImplementedException();
-        }
+//        if (newReq.objectIds.length > 1) {
+//            throw new NotImplementedException();
+//        }
 
         RequestId rId = newReq.getId();
         int id = getIntId(rId);
@@ -76,26 +75,24 @@ public class ConflictDetector {
         }
 
         if (insert) {
-            for (int oId : request.getObjectIds()) {
+            for (int oId : request.objectIds) {
                 reqMapLock[oId].writeLock().lock();
-
                 objReqMap[oId].put(request.getPosition(), request);
                 objReqIdMap[oId].put(request.getPosition(), request.getId());
-
                 reqMapLock[oId].writeLock().unlock();
             }
         }
         if (update) {
-            for (int oId : request.getObjectIds()) {
+            for (int oId : request.objectIds) {
                 reqMapLock[oId].writeLock().lock();
-
-                objReqMap[oId].remove(oldPos);
+                
+		objReqMap[oId].remove(oldPos);
                 objReqIdMap[oId].remove(oldPos);
 
                 objReqMap[oId].put(request.getPosition(), request);
                 objReqIdMap[oId].put(request.getPosition(), request.getId());
-
-                reqMapLock[oId].writeLock().unlock();
+                
+		reqMapLock[oId].writeLock().unlock();
             }
         }
 
@@ -109,6 +106,7 @@ public class ConflictDetector {
             if (req.getId() == null) {
                 return null;
             }
+	    assert rId.equals(req.getId()) : "oops! reqId doesnt match";
             return req;
         }
     }
@@ -210,35 +208,46 @@ public class ConflictDetector {
 //        return 0;
 //    }
 
-    Request[] computeWaitSet(final Request request) {
-        int oId = request.objectIds[0];
-
-        lock(oId);
-        SortedMap<Long, Request> map = objReqMap[oId].tailMap(request.getPosition(), false);
-        Request[] waitSet = new Request[map.size()];
-        int index = 0;
-        for (Request entry : map.values()) {
-            waitSet[index++] = entry;
+    Request[][] computeWaitSet(final Request request) {
+        Request[][] waitSets = new Request[request.getObjectIds().length][];
+        int i = 0;
+        for (int oId : request.objectIds) {
+            lock(oId);
+            SortedMap<Long, Request> map = objReqMap[oId].tailMap(request.getPosition(), false);
+            waitSets[i] = new Request[map.size()];
+            int index = 0;
+            for (Request entry : map.values()) {
+                waitSets[i][index++] = entry;
+            }
+            i++;
+            unlock(oId);
         }
-        unlock(oId);
 
-        return waitSet;
+        return waitSets;
     }
 
-    void lock(int oId) {
-        reqMapLock[oId].readLock().lock();
+    private void lock(int oId) {
+	try {
+		while(!reqMapLock[oId].readLock().tryLock(1, TimeUnit.SECONDS)) {
+			System.out.println(oId);
+		}
+	} catch (InterruptedException e) {
+	
+	}
     }
 
-    void unlock(int oId) {
+    private void unlock(int oId) {
         reqMapLock[oId].readLock().unlock();
     }
 
     Collection<RequestId> computeNewPredFor(Request request, long position, Set<RequestId> whiteList) {
-        int oId = request.objectIds[0];
 
-        lock(oId);
-        SortedMap<Long, RequestId> map = objReqIdMap[oId].headMap(position);
-        unlock(oId);
+        Collection<RequestId> pred = new HashSet<>();
+        for (int oId : request.objectIds) {
+            lock(oId);
+            pred.addAll(objReqIdMap[oId].headMap(position).values());
+            unlock(oId);
+        }
 
 //        for (int oId : objectIds) {
 //            reqMapLock[oId].readLock().lock();
@@ -310,6 +319,6 @@ public class ConflictDetector {
 //            reqMapLock[oId].readLock().unlock();
 //
 //        }
-        return map.values();
+        return pred;
     }
 }

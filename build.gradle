@@ -32,7 +32,7 @@ task upload(type: Exec, dependsOn: distTar) {
 }
 
 //applicationDefaultJvmArgs = ["-ea", "-Djava.util.concurrent.ForkJoinPool.common.parallelism=100"]
-applicationDefaultJvmArgs = ["-Xmx25g", "-Xms20g", "-ea", "-XX:+UseG1GC",
+applicationDefaultJvmArgs = ["-Xmx4g", "-Xms2g", "-ea", "-XX:+UseG1GC",
                              "-XX:MaxGCPauseMillis=200", "-XX:InitiatingHeapOccupancyPercent=70"]
 
 

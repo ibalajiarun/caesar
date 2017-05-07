@@ -1,8 +1,8 @@
 package hyflow.main;
 
 import hyflow.benchmark.AbstractService;
+import hyflow.benchmark.kv.KeyValue;
 import hyflow.caesar.Caesar;
-import hyflow.caesar.FastProposeReplyInfo;
 import hyflow.caesar.messages.FastProposeReply;
 import hyflow.caesar.statistics.RequestStats;
 import hyflow.common.*;
@@ -144,25 +144,27 @@ public class ThroughputClient implements Client {
                 info.propose += request.proposeDuration;
                 info.retry += request.retryDuration;
                 info.deliver += request.deliverDuration;
-                FastProposeReply[] replies = request.info.getReplies();
-                if (request.objectIds[0] < ProcessDescriptor.getInstance().conflictPool) {
-                    int max = 0;
-                    for (FastProposeReply reply : replies) {
-                        if (reply != null) {
-                            max = Math.max(max, reply.getWaitTime());
+                if (request.info != null) {
+                    FastProposeReply[] replies = request.info.getReplies();
+                    if (request.objectIds[0] < ProcessDescriptor.getInstance().conflictPool) {
+                        int max = 0;
+                        for (FastProposeReply reply : replies) {
+                            if (reply != null) {
+                                max = Math.max(max, reply.getWaitTime());
+                            }
                         }
+                        info.wait += max;
+                        info.waitCount++;
                     }
-                    info.wait += max;
-                    info.waitCount++;
                 }
                 info.count++;
             });
             bw.write(String.format("%f,%f,%f,%f,%f\n",
-                    tps,
-                    info.propose * 1.0 / info.count,
-                    info.retry * 1.0 / info.count,
-                    info.deliver * 1.0 / info.count,
-                    info.wait * 1.0 / info.waitCount));
+                tps,
+                info.propose * 1.0 / info.count,
+                info.retry * 1.0 / info.count,
+                info.deliver * 1.0 / info.count,
+                info.wait * 1.0 / info.waitCount));
             bw.close();
         } catch (IOException e) {
             e.printStackTrace();
@@ -187,7 +189,7 @@ public class ThroughputClient implements Client {
     }
 
     private void execute(int clientCount, int requests, int conflictPercent, int writePercent, int batchSize)
-            throws IOException, InterruptedException {
+    throws IOException, InterruptedException {
 
         finishedLock.acquire();
 
@@ -263,7 +265,7 @@ public class ThroughputClient implements Client {
 //                        continue;
 //                    }
 
-                    double tps = count * 1000.0 / interval;
+                    double tps = (count * 1000.0) / (double) interval;
                     bw.write(tps + "\n");
                     System.out.println("Throughput: " + tps);
                     prevCount = count;
@@ -292,7 +294,7 @@ public class ThroughputClient implements Client {
 
         ClientThread(int clientId) throws IOException {
             this.clientId = clientId;
-            this.random = new Random(localId * clientId);
+            this.random = new Random(localId * clientId * System.nanoTime());
             this.sends = new ArrayBlockingQueue<>(128);
         }
 
@@ -312,41 +314,63 @@ public class ThroughputClient implements Client {
 
                     long start = System.currentTimeMillis();
 
-                    for (int i = 0; i < count; i += batchSize) {
+                    if (batchSize > 1) {
+                        Request request;
+                        for (int i = 0; i < count; i += batchSize) {
+                            request = ((KeyValue)service).createRequest(new RequestId(localId, seqGen.next()),
+                                conflictPercent, batchSize, numReplicas, random);
 
+                            RequestId requestId = request.getId();
+                            requestMap.put(requestId, request);
+
+                            caesar.propose(request);
+                            requests.add(request);
+
+                            if (i % 100 == 0) {
+                                Thread.sleep(ProcessDescriptor.getInstance().proposerSleep);
+                            }
+                            
+                        }
+
+                    } else {
                         Request request;
 
-                        read = random.nextInt(100) >= writePercent;
+                        for (int i = 0; i < count; i += batchSize) {
 
-                        if (conflictPercent != -1) {
-                            conflict = random.nextInt(100) < conflictPercent;
-                            accessMode = conflict ? 0 : 1;
-                        } else {
-                            accessMode = 2;
-                        }
 
-                        request = service.createRequest(new RequestId(localId, seqGen.next()),
+                            read = random.nextInt(100) >= writePercent;
+
+                            if (conflictPercent != -1) {
+                                conflict = random.nextInt(100) < conflictPercent;
+                                accessMode = conflict ? 0 : 1;
+                            } else {
+                                accessMode = 2;
+                            }
+
+                            request = service.createRequest(new RequestId(localId, seqGen.next()),
                                 read, accessMode, batchSize, numReplicas);
 
-                        RequestId requestId = request.getId();
-                        requestMap.put(requestId, request);
-                        requests.add(request);
+                            RequestId requestId = request.getId();
+                            requestMap.put(requestId, request);
 
-                        caesar.propose(request);
+                            caesar.propose(request);
+                            requests.add(request);
 
-                        if (i % 100 == 0) {
-                            Thread.sleep(ProcessDescriptor.getInstance().proposerSleep);
+                            if (i % 100 == 0) {
+                                Thread.sleep(ProcessDescriptor.getInstance().proposerSleep);
+                            }
+
                         }
-
                     }
                     for (Request request : requests) {
                         RequestId requestId = request.getId();
                         synchronized (requestId) {
                             int times = 0;
                             while (request.getStatus() != RequestStatus.Delivered) {
-                                requestId.wait(1000);
+                                requestId.wait(5000);
                                 times++;
-                                if (times % 10 == 0) {
+                                System.out.println(request);
+                                if (times % 1000 == 0) {
                                     if (logger.isInfoEnabled())
                                         logger.info(marker, "Too long " + request);
                                 }
@@ -357,7 +381,7 @@ public class ThroughputClient implements Client {
 
                     long duration = System.currentTimeMillis() - start;
                     System.err.println(String.format("Client Finished %d %d %4.2f\n", clientId, duration,
-                            (double) count * 1000 / duration));
+                        (double) count * 1000 / duration));
 
                     int stillActive = runningClients.decrementAndGet();
                     if (stillActive == 0) {

@@ -11,7 +11,9 @@ import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Created by balaji on 4/25/16.
@@ -23,7 +25,6 @@ public class KeyValue extends AbstractService {
     private static final int INITIAL_VALUE = 1000;
     private final int size;
     private final SharedObjectRegistry registry;
-    private final Random random = new Random();
 
     public KeyValue(String fileName) throws IOException {
         super(fileName);
@@ -51,8 +52,10 @@ public class KeyValue extends AbstractService {
     }
 
     @Override
-    public Request createRequest(RequestId rId, boolean read, int accessMode, int batchSize, int numReplicas) {
+    public Request createRequest(RequestId rId, boolean read, int accessMode,
+                                 int batchSize, int numReplicas) {
         final int MIN_PAYLOAD_SIZE = 6;
+        Random random = ThreadLocalRandom.current();
 
         Request request;
         byte[] payload = new byte[MIN_PAYLOAD_SIZE + batchSize * 8];
@@ -75,12 +78,12 @@ public class KeyValue extends AbstractService {
             switch (accessMode) {
 
                 case 0:
-                    key = rId.getSeqNumber() % ProcessDescriptor.getInstance().conflictPool;
+//                    key = (rId.getSeqNumber() + i) % ProcessDescriptor.getInstance().conflictPool;
+                    key = (rId.getClientId() + (rId.getSeqNumber() * numReplicas) + i) % ProcessDescriptor.getInstance().conflictPool;
                     objectId[i] = key;
                     break;
 
                 case 1:
-
                     key = rId.getClientId() + (rId.getSeqNumber() * numReplicas) + ProcessDescriptor.getInstance().conflictPool + 1;
                     objectId[i] = key;
                     break;
@@ -105,8 +108,94 @@ public class KeyValue extends AbstractService {
 
         buffer.flip();
 
+        Arrays.sort(objectId);
         request = new Request(rId, objectId, payload);
         return request;
+    }
+
+    public Request createRequest(RequestId rId, int conflictPercent,
+                                 int batchSize, int numReplicas, Random random) {
+        final int MIN_PAYLOAD_SIZE = 6;
+        random = ThreadLocalRandom.current();
+
+        Request request;
+        int[] objectId = new int[batchSize];
+        int value;
+
+        boolean conflict;
+        int accessMode;
+        for (int i = 0; i < batchSize; i++) {
+            int key;
+            if (conflictPercent != -1) {
+                conflict = random.nextInt(100) < conflictPercent;
+                accessMode = conflict ? 0 : 1;
+            } else {
+                accessMode = 2;
+            }
+
+            switch (accessMode) {
+
+                case 0:
+                    key = random.nextInt(ProcessDescriptor.getInstance().conflictPool);
+                    objectId[i] = key;
+                    break;
+
+                case 1:
+                    key = rId.getClientId() + (rId.getSeqNumber() * numReplicas) + ProcessDescriptor.getInstance().conflictPool + 1;
+                    objectId[i] = key;
+                    break;
+
+                default:
+                    key = random.nextInt(this.size);
+                    objectId[i] = key;
+            }
+
+        }
+
+        Arrays.sort(objectId);
+        objectId = removeDuplicates(objectId);
+
+        byte[] payload = new byte[MIN_PAYLOAD_SIZE + batchSize * 8];
+        ByteBuffer buffer = ByteBuffer.wrap(payload);
+
+        buffer.put((byte) TransactionType.ReadWriteTransaction.ordinal());
+        buffer.put((byte) OpType.Put.ordinal());
+
+        buffer.putInt(objectId.length);
+
+        for(int key : objectId) {
+            value = random.nextInt(INITIAL_VALUE);
+
+            buffer.putInt(key);
+            buffer.putInt(value);
+        }
+
+        buffer.flip();
+        // System.out.println(Arrays.toString(objectId));
+        request = new Request(rId, objectId, payload);
+        return request;
+    }
+
+    public static int[] removeDuplicates(int[] A) {
+        if (A.length < 2)
+            return A;
+
+        int j = 0;
+        int i = 1;
+
+        while (i < A.length) {
+            if (A[i] == A[j]) {
+                i++;
+            } else {
+                j++;
+                A[j] = A[i];
+                i++;
+            }
+        }
+
+        int[] B = Arrays.copyOf(A, j + 1);
+
+        return B;
     }
 
     @Override

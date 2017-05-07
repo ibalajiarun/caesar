@@ -148,7 +148,7 @@ public class Proposer {
             assert request.getStatus() == RequestStatus.FastPending :
                     "Request not pending " + request + ";" + rInfo;
 
-            Request[] waitSet = conflictDetector.computeWaitSet(request);
+            Request[][] waitSet = conflictDetector.computeWaitSet(request);
 
 //            conflictDetector.lock(request.objectIds[0]);
 //            int size = waitSet.size();
@@ -161,14 +161,14 @@ public class Proposer {
 //                return;
 //            }
 
-            fastProposeResume(rInfo, request, view, sender, msg.getWhiteList(), waitSet, 0);
+            fastProposeResume(rInfo, request, view, sender, msg.getWhiteList(), waitSet, 0, 0);
 
         }
 
     }
 
     private void fastProposeResume(RequestInfo reqInfo, Request request, int view, int sender,
-                                   Set<RequestId> whiteList, Request[] waitReqs, int startIdx) {
+                                   Set<RequestId> whiteList, Request[][] waitReqs, int startIdx1, int startIdx2) {
         RequestId rId = request.getId();
 //        int id = getIntId(rId);
 
@@ -183,37 +183,42 @@ public class Proposer {
                 return;
             }
 
-            conflictDetector.lock(request.objectIds[0]);
-            for (int index = startIdx; index < waitReqs.length; index++) {
-                Request req = waitReqs[index];
+            for (int index1 = startIdx1; index1 < waitReqs.length; index1++) {
+                //conflictDetector.lock(request.objectIds[index1]);
+                for (int index2 = startIdx2; index2 < waitReqs[index1].length; index2++) {
+                    Request req = waitReqs[index1][index2];
 
-                Queue<Runnable> prQ = proposeRunnables[getIntId(req.getId())];
+                    Queue<Runnable> prQ = proposeRunnables[getIntId(req.getId())];
 
-                assert prQ != null : "prQ is null for " + request;
+                    assert prQ != null : "prQ is null for " + request;
 
-                synchronized (prQ) {
+                    synchronized (prQ) {
 
-                    if (request.getPosition() < req.getPosition() && !req.getPred().contains(rId)) {
+                        if (request.getPosition() < req.getPosition() && !req.getPred().contains(rId)) {
 
-                        if (req.getStatus().ordinal() < RequestStatus.Accepted.ordinal()) {
+                            if (req.getStatus().ordinal() < RequestStatus.Accepted.ordinal()) {
 
-                            prQ.add(new OnFastProposeRunner(reqInfo, request, view, sender, whiteList,
-                                        waitReqs, index));
-                            conflictDetector.unlock(request.objectIds[0]);
-                            request.startWait = System.currentTimeMillis();
-                            return;
+                                //conflictDetector.unlock(request.objectIds[index1]);
+                                prQ.add(new OnFastProposeRunner(reqInfo, request, view, sender, whiteList,
+                                        waitReqs, index1, index2));
+				if(logger.isDebugEnabled()) {
+					logger.debug("{} is waiting for {}", request, req);
+				}
+                                request.startWait = System.currentTimeMillis();
+                                return;
 
-                        } else {
+                            } else {
 
-                            sendFastProposeReject(reqInfo, view, sender, request);
-                            conflictDetector.unlock(request.objectIds[0]);
-                            return;
+                                //conflictDetector.unlock(request.objectIds[index1]);
+                                sendFastProposeReject(reqInfo, view, sender, request);
+                                return;
 
+                            }
                         }
                     }
                 }
+                //conflictDetector.unlock(request.objectIds[index1]);
             }
-            conflictDetector.unlock(request.objectIds[0]);
 
             Collection<RequestId> predSet = conflictDetector.computeNewPredFor(request, request.getPosition(), whiteList);
             request.setPred(predSet);
@@ -225,13 +230,17 @@ public class Proposer {
                 prQ.clear();
             }
 
-            conflictDetector.lock(request.objectIds[0]);
+            //for(int oId : request.objectIds) {
+            //    conflictDetector.lock(oId);
+            //}
             int predSize = predSet.size();
             ByteBuffer bb = ByteBuffer.allocate(predSize * rId.byteSize());
             for (RequestId r : predSet) {
                 r.writeTo(bb);
             }
-            conflictDetector.unlock(request.objectIds[0]);
+            //for(int oId : request.objectIds) {
+            //    conflictDetector.unlock(oId);
+            //}
 
             FastProposeReply replyMsg = new FastProposeReply(view, request.getId(),
                     FastProposeReply.Status.ACK, bb.array(), predSize, request.getPosition(), request.waitDuration);
@@ -250,13 +259,17 @@ public class Proposer {
         Collection<RequestId> predSet = conflictDetector.computeNewPredFor(request, position, null);
         request.setHasWhitelist(false);
 
-        conflictDetector.lock(request.objectIds[0]);
+        //for(int oId : request.objectIds) {
+        //    conflictDetector.lock(oId);
+        //}
         int predSize = predSet.size();
         ByteBuffer bb = ByteBuffer.allocate(predSize * request.getId().byteSize());
         for (RequestId r : predSet) {
             r.writeTo(bb);
         }
-        conflictDetector.unlock(request.objectIds[0]);
+        //for(int oId : request.objectIds) {
+        //    conflictDetector.unlock(oId);
+        //}
 
         FastProposeReply replyMsg = new FastProposeReply(view, request.getId(),
                 FastProposeReply.Status.NACK, bb.array(), predSize, position, request.waitDuration);
@@ -536,16 +549,20 @@ public class Proposer {
 
             Collection<RequestId> newPredSet = conflictDetector.computeNewPredFor(request, request.getPosition(), null);
 
-            conflictDetector.lock(request.objectIds[0]);
+            //for(int oId : request.objectIds) {
+            //    conflictDetector.lock(oId);
+            //}
             int predSize = newPredSet.size() + request.getPred().size();
             ByteBuffer bb = ByteBuffer.allocate(predSize * rId.byteSize());
             for (RequestId r : newPredSet) {
                 r.writeTo(bb);
             }
-            for (RequestId r : request.getPred()) {
-                r.writeTo(bb);
-            }
-            conflictDetector.unlock(request.objectIds[0]);
+            //for (RequestId r : request.getPred()) {
+            //    r.writeTo(bb);
+            //}
+            //for(int oId : request.objectIds) {
+            //    conflictDetector.unlock(oId);
+            //}
 
             request.setStatus(RequestStatus.Accepted);
             reqInfo.setStatus(RequestStatus.Accepted);
@@ -971,25 +988,31 @@ public class Proposer {
         private final RequestInfo info;
         private final Request request;
         private final int sender;
-        private final Request[] waitReqs;
-        private final int index;
+        private final Request[][] waitReqs;
+        private final int index1;
+        private final int index2;
         private final int view;
         private final Set<RequestId> whiteList;
 
-        public OnFastProposeRunner(RequestInfo info, Request request, int view, int sender, Set<RequestId> whiteList, Request[] waitReqs, int index) {
+        public OnFastProposeRunner(RequestInfo info, Request request, int view, int sender, Set<RequestId> whiteList, Request[][] waitReqs, int index1, int index2) {
             this.info = info;
             this.request = request;
             this.view = view;
             this.sender = sender;
             this.waitReqs = waitReqs;
-            this.index = index;
+            this.index1 = index1;
+            this.index2 = index2;
             this.whiteList = whiteList;
         }
 
         @Override
         public void run() {
-//            logger.trace("Calling fastProposeResume for {} and waitReq {}", request, waitReqs);
-            fastProposeResume(info, request, view, sender, whiteList, waitReqs, index);
+	    StringBuilder b = new StringBuilder();
+	    for(Request[] rArray : waitReqs) {
+		b.append(Arrays.toString(rArray));
+	    }
+            //logger.trace("Calling fastProposeResume for {} and waitReq {}", request, b.toString());
+            fastProposeResume(info, request, view, sender, whiteList, waitReqs, index1, index2);
         }
     }
 

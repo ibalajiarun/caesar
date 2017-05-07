@@ -17,7 +17,7 @@
         </Async>
     </Appenders>
     <Loggers>
-        <Root level="Fatal">
+        <Root level="FATAL">
             <AppenderRef ref="Async"/>
             <AppenderRef ref="Console"/>
         </Root>
