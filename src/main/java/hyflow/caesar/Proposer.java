@@ -34,6 +34,7 @@ public class Proposer {
     private final SlowProposeReplyInfo[] spReplies;
 
     private final RetryReplyInfo[] retryReplies;
+    private final SpecRetryReplyInfo[] specRetryReplies;
 
     private final RecoveryInfo[] recoveryReplies;
 
@@ -75,6 +76,7 @@ public class Proposer {
         this.spReplies = new SlowProposeReplyInfo[mapSize];
 
         this.retryReplies = new RetryReplyInfo[mapSize];
+        this.specRetryReplies = new SpecRetryReplyInfo[mapSize];
 
         this.recoveryReplies = new RecoveryInfo[mapSize];
 
@@ -128,6 +130,9 @@ public class Proposer {
 
         synchronized (reqInfos[id]) {
             RequestInfo rInfo = reqInfos[id];
+
+//            logger.fatal("SetFPDone {}", msg);
+            rInfo.setFPDone();
 
             if (rInfo.getId() == null) {
                 rInfo.init(rId, view, RequestStatus.PreFastPending);
@@ -196,19 +201,19 @@ public class Proposer {
 
                         if (request.getPosition() < req.getPosition() && !req.getPred().contains(rId)) {
 
-                            if (req.getStatus().ordinal() < RequestStatus.Accepted.ordinal()) {
-
+                            if (req.getStatus().ordinal() < RequestStatus.Stable.ordinal()) {
+                                sendFastProposeSpecReject(reqInfo, view, sender, request);
                                 //conflictDetector.unlock(request.objectIds[index1]);
                                 prQ.add(new OnFastProposeRunner(reqInfo, request, view, sender, whiteList,
                                         waitReqs, index1, index2));
-				if(logger.isDebugEnabled()) {
-					logger.debug("{} is waiting for {}", request, req);
-				}
+//                                if (logger.isFatalEnabled()) {
+//                                    logger.fatal("{} is waiting for {}", request, req);
+//                                }
                                 request.startWait = System.currentTimeMillis();
                                 return;
 
                             } else {
-
+//                                logger.fatal("Rejecting {}", request);
                                 //conflictDetector.unlock(request.objectIds[index1]);
                                 sendFastProposeReject(reqInfo, view, sender, request);
                                 return;
@@ -249,8 +254,40 @@ public class Proposer {
 
     }
 
-    private void sendFastProposeReject(RequestInfo reqInfo, int view, int sender, Request request) {
+    private void sendFastProposeSpecReject(RequestInfo reqInfo, int view, int sender, Request request) {
+        if(reqInfo.getSpecReject())
+            return;
+        reqInfo.setSpecReject();
 
+        request.setStatus(RequestStatus.SpecRejected);
+        reqInfo.setStatus(RequestStatus.SpecRejected);
+
+        long position = tsGenerator.newTimestamp();
+
+        Collection<RequestId> predSet = conflictDetector.computeNewPredFor(request, position, null);
+        request.setHasWhitelist(false);
+
+        //for(int oId : request.objectIds) {
+        //    conflictDetector.lock(oId);
+        //}
+        int predSize = predSet.size();
+        ByteBuffer bb = ByteBuffer.allocate(predSize * request.getId().byteSize());
+        for (RequestId r : predSet) {
+            r.writeTo(bb);
+        }
+        //for(int oId : request.objectIds) {
+        //    conflictDetector.unlock(oId);
+        //}
+//        if (logger.isFatalEnabled()) {
+//            logger.fatal("SpecReject {}", request);
+//        }
+        FastProposeReply replyMsg = new FastProposeReply(view, request.getId(),
+                FastProposeReply.Status.SPECNACK, bb.array(), predSize, position, request.waitDuration);
+        repliesChannel.sendMessage(replyMsg, sender);
+
+    }
+
+    private void sendFastProposeReject(RequestInfo reqInfo, int view, int sender, Request request) {
         request.setStatus(RequestStatus.Rejected);
         reqInfo.setStatus(RequestStatus.Rejected);
 
@@ -289,12 +326,21 @@ public class Proposer {
 
         FastProposeReplyInfo info = fpReplies[id];
 
+        SpecRetryReplyInfo srInfo = specRetryReplies[id];
+//        if (srInfo == null) {
+//            System.err.println("should not be here in onFastProposeReply");
+//            System.exit(-1);
+//        }
+
         // TODO: CHECK IF THIS AFFECTS CORRECTNESS
         if (info == null) {
             return;
         }
 
         synchronized (info) {
+            if(srInfo != null && srInfo.isDone())
+                return;
+
             if (info.isDone()) {
                 return;
             }
@@ -307,26 +353,53 @@ public class Proposer {
 
                 RequestStats.getInstance().fpCount.incrementAndGet();
 
+                info.setSuccess();
+
                 Stable stableMsg = new Stable(msg.getView(), request);
                 stableChannel.sendToAll(stableMsg);
 
-
             } else if (info.hasNack() && info.isClassicQuorum()) {
 
-                Request request = info.updateAndGetRequest();
+                if(!info.hasSpecNack()) {
 
-                tsGenerator.setTimestamp(info.getMaxPosition());
+                    Request request = info.updateAndGetRequest();
 
-                request.setPosition(tsGenerator.newTimestamp());
+                    tsGenerator.setTimestamp(info.getMaxPosition());
 
-                retryReplies[id] = new RetryReplyInfo(request, numReplicas);
+                    request.setPosition(tsGenerator.newTimestamp());
 
-                Retry retryMsg = new Retry(msg.getView(), request);
-                proposeChannel.sendToAll(retryMsg);
+                    retryReplies[id] = new RetryReplyInfo(request, numReplicas);
 
-                proposedReqs[id].startRetry = System.currentTimeMillis();
+                    Retry retryMsg = new Retry(msg.getView(), request);
+                    proposeChannel.sendToAll(retryMsg);
 
-            } else if (info.isClassicQuorum()) {
+                    proposedReqs[id].startRetry = System.currentTimeMillis();
+                }
+
+            } else if (info.hasSpecNack() && info.isClassicQuorumWithSpec()) {
+
+//                if(logger.isFatalEnabled())
+//                    logger.fatal("SpecNack received: {}", msg);
+
+                if(!info.isSpecRetryDone()) {
+                    info.setSpecRetryDone();
+
+                    Request request = info.updateAndGetSpecRequest();
+
+                    tsGenerator.setTimestamp(info.getSpecPosition());
+
+                    request.setPosition(tsGenerator.newTimestamp());
+
+                    specRetryReplies[id] = new SpecRetryReplyInfo(request, numReplicas);
+
+                    SpecRetry specRetryMsg = new SpecRetry(msg.getView(), request);
+                    proposeChannel.sendToAll(specRetryMsg);
+
+                    proposedReqs[id].startSpecRetry = System.currentTimeMillis();
+                }
+                    return;
+
+            } else if (info.isClassicQuorum() && !info.hasNack()) {
 
                 Request request = info.updateAndGetRequest();
 
@@ -522,6 +595,104 @@ public class Proposer {
 
     }
 
+    boolean onSpecRetry(SpecRetry msg, int sender) {
+
+//        logger.fatal("SpecRetry {}", msg);
+
+        Request msgRequest = msg.getRequest();
+        RequestId rId = msgRequest.getId();
+        int id = getIntId(rId);
+
+        tsGenerator.setTimestamp(msgRequest.getPosition());
+
+        int view = msg.getView();
+
+
+        synchronized (reqInfos[id]) {
+            RequestInfo reqInfo = reqInfos[id];
+
+            if(!reqInfo.isFPDone()) {
+//                logger.fatal("Re-exec {}", msg);
+                return false;
+            }
+
+            if (reqInfo.getId() == null) {
+                reqInfo.init(rId, view, RequestStatus.PreSpecAccepted);
+            }
+
+            if ((reqInfo.getView() > view) || (reqInfo.getView() == view
+                    && reqInfo.getStatusOrdinal() > RequestStatus.PreSpecAccepted.ordinal())) {
+                return true;
+            }
+
+            Request request = conflictDetector.updateSpecRequest(msgRequest);
+
+            Collection<RequestId> newPredSet = conflictDetector.computeNewSpecPredFor(request, request.getSpecPosition());
+
+            int predSize = newPredSet.size() + request.getPred().size();
+            ByteBuffer bb = ByteBuffer.allocate(predSize * rId.byteSize());
+            for (RequestId r : newPredSet) {
+                r.writeTo(bb);
+            }
+
+            request.setStatus(RequestStatus.SpecAccepted);
+            reqInfo.setStatus(RequestStatus.SpecAccepted);
+
+            request.setHasWhitelist(false);
+
+//            Queue<Runnable> prQ = proposeRunnables[id];
+
+//            synchronized (prQ) {
+//                prQ.forEach(intDispatcher::submit);
+//                prQ.clear();
+//            }
+
+            SpecRetryReply replyMsg = new SpecRetryReply(view, rId, bb.array(), predSize);
+            repliesChannel.sendMessage(replyMsg, sender);
+
+        }
+        return true;
+    }
+
+    void onSpecRetryReply(SpecRetryReply msg, int sender) {
+//        logger.fatal("SpecRetryReply {}", msg);
+
+        int id = getIntId(msg.getRequestId());
+        SpecRetryReplyInfo info = specRetryReplies[id];
+
+        FastProposeReplyInfo fpInfo = fpReplies[id];
+
+        if (info == null) {
+            return;
+        }
+
+        if(fpInfo == null) {
+            System.err.println("should not be here in onSpecRetryReply");
+            System.exit(-1);
+            return;
+        }
+
+        synchronized (fpInfo) {
+            if(fpInfo.isSuccess())
+                return;
+
+            info.addReply(msg, sender);
+
+            if (!info.isClassicQuorum() || info.isDone()) {
+                return;
+            }
+
+            RequestStats.getInstance().specRetryCount.getAndIncrement();
+            info.setDone();
+
+            Request request = info.updateAndGetRequest();
+            proposedReqs[id].retryDuration = (int) (System.currentTimeMillis() - request.startRetry);
+
+            Stable stableMsg = new Stable(msg.getView(), request);
+            stableChannel.sendToAll(stableMsg);
+        }
+    }
+
     void onRetry(Retry msg, int sender) {
 
         Request msgRequest = msg.getRequest();
@@ -645,6 +816,9 @@ public class Proposer {
                 prQ.forEach(intDispatcher::submit);
                 prQ.clear();
             }
+
+            if(logger.isFatalEnabled())
+//                logger.fatal("Stable: {}", request);
 
 //            caesar.deliver(request);
             deliver(request);
@@ -1007,10 +1181,10 @@ public class Proposer {
 
         @Override
         public void run() {
-	    StringBuilder b = new StringBuilder();
-	    for(Request[] rArray : waitReqs) {
-		b.append(Arrays.toString(rArray));
-	    }
+            StringBuilder b = new StringBuilder();
+            for (Request[] rArray : waitReqs) {
+                b.append(Arrays.toString(rArray));
+            }
             //logger.trace("Calling fastProposeResume for {} and waitReq {}", request, b.toString());
             fastProposeResume(info, request, view, sender, whiteList, waitReqs, index1, index2);
         }

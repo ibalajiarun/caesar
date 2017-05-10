@@ -4,6 +4,8 @@ import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.IOException;
 
+import static hyflow.caesar.messages.MessageType.SpecRetryReply;
+
 /**
  * This class is responsible for serializing and deserializing messages to /
  * from byte array or input stream. The message has to be serialized using
@@ -70,6 +72,13 @@ public final class MessageFactory {
                 break;
             case SlowProposeReply:
                 message = new SlowProposeReply(input);
+                break;
+
+            case SpecRetry:
+                message = new SpecRetry(input);
+                break;
+            case SpecRetryReply:
+                message = new SpecRetryReply(input);
                 break;
 
             case Retry:

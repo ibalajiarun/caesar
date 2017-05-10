@@ -12,7 +12,12 @@ public enum RequestStatus {
     PreSlowPending,
     SlowPending,
 
+    SpecRejected,
+
     Rejected,
+
+    PreSpecAccepted,
+    SpecAccepted,
 
     PreAccepted,
     Accepted,

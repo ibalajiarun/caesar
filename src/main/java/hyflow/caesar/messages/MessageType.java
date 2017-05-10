@@ -10,6 +10,9 @@ public enum MessageType {
     SlowPropose,
     SlowProposeReply,
 
+    SpecRetry,
+    SpecRetryReply,
+
     Retry,
     RetryReply,
 

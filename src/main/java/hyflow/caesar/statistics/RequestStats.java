@@ -13,6 +13,7 @@ public final class RequestStats {
     public AtomicInteger spCount = new AtomicInteger(0);
     public AtomicInteger retryCount = new AtomicInteger(0);
     public AtomicInteger recoverCount = new AtomicInteger(0);
+    public AtomicInteger specRetryCount = new AtomicInteger(0);
 
     private RequestStats() {
 

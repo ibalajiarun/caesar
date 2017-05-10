@@ -19,7 +19,7 @@ public final class Caesar implements FailureDetector.FailureDetectorListener {
 
     private final ScheduledThreadDispatcher cReqDispatcher;
     private final ThreadDispatcher auxDispatcher;
-    private final ThreadDispatcher propDispatcher;
+    public final ThreadDispatcher propDispatcher;
     private final ScheduledThreadDispatcher intDispatcher;
     private final ThreadDispatcher stableDispatcher;
 
@@ -85,6 +85,9 @@ public final class Caesar implements FailureDetector.FailureDetectorListener {
 
         Network.addMessageListener(MessageType.SlowPropose, handler);
         Network.addMessageListener(MessageType.SlowProposeReply, handler);
+
+        Network.addMessageListener(MessageType.SpecRetry, handler);
+        Network.addMessageListener(MessageType.SpecRetryReply, handler);
 
         Network.addMessageListener(MessageType.Retry, handler);
         Network.addMessageListener(MessageType.RetryReply, handler);
@@ -198,7 +201,8 @@ public final class Caesar implements FailureDetector.FailureDetectorListener {
 
             if (msg.getType() == MessageType.FastPropose
                     || msg.getType() == MessageType.SlowPropose
-                    || msg.getType() == MessageType.Retry) {
+                    || msg.getType() == MessageType.Retry
+                    || msg.getType() == MessageType.SpecRetry) {
 
                 propDispatcher.execute(event, priority);
 
@@ -255,6 +259,16 @@ public final class Caesar implements FailureDetector.FailureDetectorListener {
 
                     case SlowProposeReply:
                         proposer.onSlowProposeReply((SlowProposeReply) msg, sender);
+                        break;
+
+                    case SpecRetry:
+                        if(!proposer.onSpecRetry((SpecRetry) msg, sender)) {
+                            propDispatcher.execute(this, 0);
+                        }
+                        break;
+
+                    case SpecRetryReply:
+                        proposer.onSpecRetryReply((SpecRetryReply) msg, sender);
                         break;
 
                     case Retry:

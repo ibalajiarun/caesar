@@ -100,6 +100,6 @@ public final class FastProposeReply extends Message {
     }
 
     public enum Status {
-        ACK, NACK, REPROPOSE
+        ACK, SPECNACK, NACK, REPROPOSE
     }
 }

@@ -49,6 +49,19 @@ public class ConflictDetector {
         return rId.getClientId() + (rId.getSeqNumber() * numReplicas);
     }
 
+    Request updateSpecRequest(Request newReq) {
+        RequestId rId = newReq.getId();
+        int id = getIntId(rId);
+
+        Request request = requestMap[id];
+        synchronized (requestMap[id]) {
+            assert (request.getId() != null);
+            request.updateWithSpec(newReq);
+        }
+
+        return request;
+    }
+
     Request updateRequest(Request newReq) {
 
 //        if (newReq.objectIds.length > 1) {
@@ -77,8 +90,10 @@ public class ConflictDetector {
         if (insert) {
             for (int oId : request.objectIds) {
                 reqMapLock[oId].writeLock().lock();
+
                 objReqMap[oId].put(request.getPosition(), request);
                 objReqIdMap[oId].put(request.getPosition(), request.getId());
+
                 reqMapLock[oId].writeLock().unlock();
             }
         }
@@ -86,13 +101,13 @@ public class ConflictDetector {
             for (int oId : request.objectIds) {
                 reqMapLock[oId].writeLock().lock();
                 
-		objReqMap[oId].remove(oldPos);
+		        objReqMap[oId].remove(oldPos);
                 objReqIdMap[oId].remove(oldPos);
 
                 objReqMap[oId].put(request.getPosition(), request);
                 objReqIdMap[oId].put(request.getPosition(), request.getId());
                 
-		reqMapLock[oId].writeLock().unlock();
+		        reqMapLock[oId].writeLock().unlock();
             }
         }
 
@@ -319,6 +334,18 @@ public class ConflictDetector {
 //            reqMapLock[oId].readLock().unlock();
 //
 //        }
+        return pred;
+    }
+
+    Collection<RequestId> computeNewSpecPredFor(Request request, long position) {
+
+        Collection<RequestId> pred = new HashSet<>();
+        for (int oId : request.objectIds) {
+            lock(oId);
+            pred.addAll(objReqIdMap[oId].headMap(position).values());
+            unlock(oId);
+        }
+
         return pred;
     }
 }

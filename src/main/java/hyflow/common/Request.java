@@ -18,8 +18,11 @@ public final class Request implements Comparable<Request> {
     public byte[] payload;
 
     private Collection<RequestId> pred;
+    private Collection<RequestId> specPred;
 
     private long position;
+    private long specPosition;
+
     private RequestStatus status;
     private int view;
 
@@ -34,6 +37,8 @@ public final class Request implements Comparable<Request> {
     public long startRetry;
     public long retryDuration;
     public FastProposeReplyInfo info;
+    public long startSpecRetry;
+    public long specRetryDuration;
 
     public Request(RequestId requestId, int[] objectIds, byte[] payload) {
         this.requestId = requestId;
@@ -43,6 +48,9 @@ public final class Request implements Comparable<Request> {
         this.pred = new TreeSet<>();
         this.view = 0;
         this.position = -1;
+
+        this.specPred = new TreeSet<>();
+        this.specPosition = -1;
     }
 
     public Request(RequestId requestId, int[] objectIds, byte[] payload,
@@ -54,6 +62,9 @@ public final class Request implements Comparable<Request> {
         this.pred = pred == null ? new TreeSet<>() : pred;
         this.status = status;
         this.view = view;
+
+        this.specPred = new TreeSet<>();
+        this.specPosition = -1;
     }
 
     public synchronized long getPosition() {
@@ -125,6 +136,7 @@ public final class Request implements Comparable<Request> {
         status = newReq.status;
     }
 
+
     @Override
     public boolean equals(Object other) {
         if (other == null || !(other instanceof Request))
@@ -154,4 +166,14 @@ public final class Request implements Comparable<Request> {
                 '}';
     }
 
+    public void updateWithSpec(Request other) {
+        view = other.view;
+        specPred = other.pred;
+        specPosition = other.position;
+        status = other.status;
+    }
+
+    public long getSpecPosition() {
+        return specPosition;
+    }
 }
